@@ -1,6 +1,6 @@
 /* ==========================================================================
    IYDV ONEUP - Main Application Router & Event Controller
-   Streamlined Apple 3-Tab Architecture
+   Streamlined Apple 3-Tab Architecture with Schedule Panel
    ========================================================================== */
 
 class App {
@@ -15,6 +15,7 @@ class App {
     window.addEventListener('DOMContentLoaded', () => {
       this.bindNavigation();
       this.bindModals();
+      this.bindProgramButtons();
       this.refreshIcons();
 
       const user = store.getCurrentUser();
@@ -52,7 +53,23 @@ class App {
           }
         }
       }
+
+      // Button data-screen navigation
+      if (e.target.closest('button[data-screen]') && !e.target.closest('.nav-item')) {
+        const btn = e.target.closest('button[data-screen]');
+        const targetScreen = btn.dataset.screen;
+        const subtab = btn.dataset.subtab;
+        if (targetScreen) {
+          this.switchScreen(targetScreen);
+          if (subtab && targetScreen === 'gym-screen') this.switchTrainingSubtab(subtab);
+          if (subtab && targetScreen === 'goals-screen') this.switchProgressSubtab(subtab);
+        }
+      }
     });
+  }
+
+  bindProgramButtons() {
+    // Program select handled by gym module
   }
 
   bindModals() {
@@ -79,12 +96,14 @@ class App {
     if (screenId === 'home-screen') {
       authModule.renderUserProfileCard();
       this.renderPreviousWorkoutsList();
+      if (window.scheduleModule) scheduleModule.renderSchedulePanel('schedule-panel-home');
     } else if (screenId === 'gym-screen') {
       if (this.activeTrainingSubtab === 'gym') {
         gymModule.renderExerciseList();
       } else {
         drillsModule.renderDrills();
       }
+      if (window.scheduleModule) scheduleModule.renderSchedulePanel('schedule-panel-gym');
     } else if (screenId === 'goals-screen') {
       if (this.activeProgressSubtab === 'goals') {
         goalsModule.renderGoals();
@@ -94,10 +113,12 @@ class App {
         weightModule.renderWeightLogsHistory();
         weightModule.renderWeightChart();
       }
+      if (window.scheduleModule) scheduleModule.renderSchedulePanel('schedule-panel-goals');
     } else if (screenId === 'dashboard-screen') {
       dashboardModule.renderTeamDashboard();
+      if (window.scheduleModule) scheduleModule.renderSchedulePanel('schedule-panel-dashboard');
     } else if (screenId === 'jogging-screen') {
-      // Jogging timer screen
+      // timer initialized by jogging module
     }
 
     this.refreshIcons();
@@ -190,7 +211,6 @@ class App {
     }
 
     const logs = store.getWorkoutLogs(user.MemberID);
-
     const grouped = {};
     logs.forEach(l => {
       if (!grouped[l.Date]) grouped[l.Date] = [];
@@ -212,10 +232,10 @@ class App {
       return `
         <div class="list-item" onclick="app.viewWorkoutDetails('${date}')" style="cursor:pointer; border-left-color:var(--orange);">
           <div>
-            <div class="list-title" style="color:var(--orange); font-weight:800; font-size:0.82rem;">
-              ${date === new Date().toISOString().split('T')[0] ? 'TODAY' : date} [ ${programName.toUpperCase()} ]
+            <div class="list-title" style="color:var(--orange);">
+              ${date === new Date().toISOString().split('T')[0] ? 'TODAY' : date} [${programName.toUpperCase()}]
             </div>
-            <div class="list-subtitle">${exercisesCount} exercise(s) logged • ${sessionLogs.length} total set(s)</div>
+            <div class="list-subtitle">${exercisesCount} exercise(s) • ${sessionLogs.length} set(s)</div>
           </div>
           <i data-lucide="chevron-right" style="width:16px; height:16px; color:var(--text-tertiary);"></i>
         </div>
@@ -234,10 +254,11 @@ class App {
     const detailContainer = document.getElementById('workout-detail-content');
     if (detailContainer) {
       detailContainer.innerHTML = `
-        <div style="font-weight:800; color:var(--orange); margin-bottom:8px;">Session Date: ${dateStr}</div>
+        <div style="font-weight:800; color:var(--orange); margin-bottom:10px;">Session: ${dateStr}</div>
         ${logs.map(l => `
-          <div style="background:var(--surface); border-left:3px solid var(--orange); padding:8px 12px; border-radius:8px; margin-bottom:6px; font-size:0.78rem;">
-            <strong>${l.Exercise}</strong> (Program: ${l.Program})<br>
+          <div style="background:rgba(255,255,255,0.04); border-left:3px solid var(--orange); padding:10px 12px; border-radius:10px; margin-bottom:6px; font-size:0.78rem;">
+            <strong style="color:var(--text-primary);">${l.Exercise}</strong>
+            <span style="color:var(--text-tertiary);"> (${l.Program})</span><br>
             ${l['Set #'] ? `Set ${l['Set #']}: ` : ''}${l.Reps} reps @ ${l['Weight (lbs)'] || l.WeightLbs || 0} lbs ${l['RPE (1-10)'] || l.RPE ? `(RPE ${l['RPE (1-10)'] || l.RPE})` : ''}
             ${l.Notes ? `<br><small style="color:var(--text-tertiary);">${l.Notes}</small>` : ''}
           </div>

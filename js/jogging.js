@@ -135,7 +135,7 @@ class JoggingModule {
 
     if (timerCircleEl) {
       timerCircleEl.style.borderColor = currentPhase.color;
-      timerCircleEl.style.background = `radial-gradient(circle, #ffffff 0%, ${currentPhase.bg} 100%)`;
+      timerCircleEl.style.background = `radial-gradient(circle, rgba(20, 20, 22, 0.95) 0%, ${currentPhase.bg} 100%)`;
     }
 
     if (totalRemainingEl) {

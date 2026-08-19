@@ -45,6 +45,9 @@ class GymModule {
     const listContainer = document.getElementById('gym-exercise-list');
     if (!listContainer) return;
 
+    const user = store.getCurrentUser();
+    const canManage = isCoachOrOfficer(user);
+
     let drills = store.getDrillsReference();
     let filtered = drills.filter(d => d.Category.toLowerCase().includes(this.currentProgram.toLowerCase()));
     if (filtered.length === 0) {
@@ -54,8 +57,13 @@ class GymModule {
     const completedCount = Object.keys(this.completedExercises).length;
 
     listContainer.innerHTML = `
-      <div style="font-weight:700; font-size:0.85rem; color:var(--primary-crimson); margin-bottom:10px;">
-        Tap an exercise to start your workout session:
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span style="font-size:0.75rem; color:var(--text-tertiary);">Tap exercise to log sets:</span>
+        ${canManage ? `
+          <button class="admin-add-btn" onclick="gymModule.openAddWorkoutModal()">
+            <i data-lucide="plus" style="width:13px;height:13px;"></i> ADD WORKOUT
+          </button>
+        ` : ''}
       </div>
 
       ${filtered.map((item, index) => {
@@ -66,15 +74,14 @@ class GymModule {
 
         return `
           <div class="card mb-2 gym-exercise-card ${isCompleted ? 'exercise-completed' : ''}"
-               onclick="${isCompleted ? '' : `gymModule.startExerciseSession('${item.Name.replace(/'/g, "\\'")}', ${index})`}"
-               style="border-left: 4px solid ${isCompleted ? 'var(--color-success)' : 'var(--accent-orange)'}; cursor:${isCompleted ? 'default' : 'pointer'};">
+               onclick="${isCompleted ? '' : `gymModule.startExerciseSession('${item.Name.replace(/'/g, "\'")}', ${index})`}"
+               style="border-left: 4px solid ${isCompleted ? 'var(--green)' : 'var(--orange)'}; cursor:${isCompleted ? 'default' : 'pointer'};">
             <div class="d-flex justify-between align-center">
               <div style="flex:1;">
-                <div style="font-family:var(--font-heading); font-weight:800; font-size:0.98rem; color:${isCompleted ? 'var(--color-success)' : 'var(--text-main)'};">
-                  ${isCompleted ? '✅ ' : ''}${item.Name}
+                <div style="font-family:var(--font-display); font-weight:800; font-size:0.95rem; color:${isCompleted ? 'var(--green)' : 'var(--text-primary)'};">                  ${isCompleted ? '✅ ' : ''}${item.Name}${item.IsCustom ? ' <span style="font-size:0.55rem;opacity:0.7;">★ CUSTOM</span>' : ''}
                 </div>
-                <div style="font-size:0.72rem; color:var(--text-muted);">
-                  ${isCompleted ? setsInfo : `${item.Type} • Program: ${this.currentProgram}`}
+                <div style="font-size:0.7rem; color:var(--text-tertiary);">
+                  ${isCompleted ? setsInfo : `${item.Type} • ${this.currentProgram}`}
                 </div>
               </div>
               <div class="gym-exercise-checkbox ${isCompleted ? 'checked' : 'locked'}">
@@ -85,17 +92,28 @@ class GymModule {
         `;
       }).join('')}
 
-      <div style="margin-top:16px; text-align:center;">
-        <button type="button" class="btn btn-secondary ${completedCount === 0 ? 'btn-disabled' : ''}"
+      <div style="margin-top:16px;">
+        <button type="button" class="btn btn-crimson ${completedCount === 0 ? 'btn-disabled' : ''}"
                 onclick="gymModule.submitGymWorkoutBatch()"
-                ${completedCount === 0 ? 'disabled' : ''}
-                style="background:${completedCount > 0 ? 'var(--primary-crimson)' : '#ccc'}; padding:14px;">
+                ${completedCount === 0 ? 'disabled' : ''}>
           <i data-lucide="check-circle"></i> SUBMIT ${this.currentProgram.toUpperCase()} WORKOUT (${completedCount} exercise${completedCount !== 1 ? 's' : ''})
         </button>
       </div>
     `;
 
     if (window.lucide) lucide.createIcons();
+  }
+
+  openAddWorkoutModal() {
+    const user = store.getCurrentUser();
+    if (!isCoachOrOfficer(user)) {
+      alert('Only coaches and officers can add workouts.');
+      return;
+    }
+    // Pre-select gym category
+    const catSelect = document.getElementById('add-drill-category');
+    if (catSelect) catSelect.value = `Gym - ${this.currentProgram}`;
+    app.openModal('add-workout-drill-modal');
   }
 
   // ── Start Active Workout Session for an Exercise ────────
@@ -121,10 +139,10 @@ class GymModule {
 
     container.innerHTML = `
       <div class="text-center mb-3">
-        <div style="font-family:var(--font-heading); font-weight:900; font-size:1.3rem; color:var(--primary-crimson); text-transform:uppercase;">
+        <div style="font-family:var(--font-display); font-weight:900; font-size:1.3rem; color:var(--crimson); text-transform:uppercase;">
           ${this.activeExercise.name}
         </div>
-        <div style="font-size:0.82rem; color:var(--text-muted); margin-top:4px;">
+        <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">
           ${this.currentProgram} Program
         </div>
       </div>
@@ -134,7 +152,7 @@ class GymModule {
       </div>
 
       <div class="active-set-card">
-        <div style="font-family:var(--font-heading); font-weight:800; font-size:1.1rem; color:var(--accent-orange); margin-bottom:12px;">
+        <div style="font-family:var(--font-display); font-weight:800; font-size:1.1rem; color:var(--orange); margin-bottom:12px;">
           SET ${this.activeSetNumber} of ${this.activeTotalSets}
         </div>
 
@@ -156,9 +174,9 @@ class GymModule {
 
       ${this.activeSetLogs.length > 0 ? `
         <div class="mb-3" style="margin-top:12px;">
-          <div style="font-size:0.78rem; font-weight:700; color:var(--text-muted); margin-bottom:6px;">Completed Sets:</div>
+          <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); margin-bottom:6px;">Completed Sets:</div>
           ${this.activeSetLogs.map((s, i) => `
-            <div style="font-size:0.75rem; background:rgba(52,199,89,0.1); border-left:3px solid var(--color-success); padding:6px 10px; border-radius:6px; margin-bottom:4px;">
+            <div style="font-size:0.75rem; background:rgba(48,209,88,0.08); border-left:3px solid var(--green); padding:6px 10px; border-radius:6px; margin-bottom:4px;">
               <strong>Set ${i + 1}:</strong> ${s.reps} reps @ ${s.weight} lbs
             </div>
           `).join('')}
@@ -201,13 +219,13 @@ class GymModule {
 
     container.innerHTML = `
       <div class="text-center">
-        <div style="font-family:var(--font-heading); font-weight:800; font-size:1.1rem; color:var(--primary-crimson); margin-bottom:16px;">
+        <div style="font-family:var(--font-display); font-weight:800; font-size:1.1rem; color:var(--crimson); margin-bottom:16px;">
           REST TIME
         </div>
-        <div id="inline-rest-countdown" style="font-family:var(--font-heading); font-size:3.5rem; font-weight:900; color:var(--accent-orange);">
+        <div id="inline-rest-countdown" style="font-family:var(--font-display); font-size:3.5rem; font-weight:900; color:var(--orange);">
           01:00
         </div>
-        <p style="font-size:0.78rem; color:var(--text-muted); margin:10px 0 16px;">
+        <p style="font-size:0.78rem; color:var(--text-secondary); margin:10px 0 16px;">
           Catch your breath before Set ${this.activeSetNumber}
         </p>
 
@@ -327,9 +345,8 @@ class GymModule {
 
     store.addWorkoutLogsBatch(batchLogs);
 
-    alert(`🎉 WORKOUT SUBMITTED!\n${completedNames.length} exercise(s), ${batchLogs.length} total set(s) logged & synced to Google Sheets.`);
+    alert(`🎉 WORKOUT SUBMITTED!\n${completedNames.length} exercise(s), ${batchLogs.length} total set(s) logged & synced to Sheets.`);
 
-    // Reset and refresh
     this.completedExercises = {};
     this.renderExerciseList();
 

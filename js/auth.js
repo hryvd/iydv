@@ -1,5 +1,6 @@
 /* ==========================================================================
    IYDV ONEUP - Auth, Profile & Photo Upload Module
+   Sheets sync on login, role-aware rendering
    ========================================================================== */
 
 class AuthModule {
@@ -73,6 +74,7 @@ class AuthModule {
     if (!user) return;
 
     const avatarSrc = user.Avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.Username}`;
+    const canManage = isCoachOrOfficer(user);
 
     // Attendance Status Today
     const todayStr = new Date().toISOString().split('T')[0];
@@ -96,7 +98,7 @@ class AuthModule {
       } else {
         topAttBanner.innerHTML = `
           <div class="top-attendance-status status-pending">
-            <i data-lucide="clock"></i> ATTENDANCE SUBMITTED (PENDING COACH APPROVAL)
+            <i data-lucide="clock"></i> ATTENDANCE SUBMITTED — PENDING APPROVAL
           </div>
         `;
       }
@@ -105,6 +107,8 @@ class AuthModule {
     const profileCardEl = document.getElementById('user-profile-card');
     if (profileCardEl) {
       store.calculateBMI(user);
+
+      const roleLabel = user.Rank === 'Alumni' ? 'COACH' : user.Rank === 'Team Captain' ? 'OFFICER' : null;
 
       profileCardEl.innerHTML = `
         <div class="profile-card-content">
@@ -118,14 +122,16 @@ class AuthModule {
 
           <div class="profile-details-block">
             <h2 class="profile-name-text">${user.FullName}</h2>
-            <div class="profile-sub-text">Athlete ID: <strong>${user.MemberID}</strong> • ${user.ProgramFocus || 'Whole Body'}</div>
+            <div class="profile-sub-text">ID: <strong>${user.MemberID}</strong> &nbsp;•&nbsp; ${user.ProgramFocus || 'Whole Body'}</div>
+
+            ${roleLabel ? `<div class="admin-role-banner"><i data-lucide="shield-check" style="width:10px;height:10px;"></i> ${roleLabel}</div>` : ''}
 
             <div class="profile-actions-row">
               <button class="edit-stats-pill-btn" onclick="app.openModal('edit-stats-modal')">
                 <i data-lucide="pencil" style="width: 11px; height: 11px;"></i> Edit Stats
               </button>
               <button class="trigger-avatar-upload upload-photo-pill-btn">
-                <i data-lucide="upload" style="width: 11px; height: 11px;"></i> Change Photo
+                <i data-lucide="upload" style="width: 11px; height: 11px;"></i> Photo
               </button>
             </div>
           </div>
@@ -144,6 +150,12 @@ class AuthModule {
     if (bmiCatEl) bmiCatEl.textContent = user.BMICategory || '--';
 
     if (window.lucide) lucide.createIcons();
+
+    // Show schedule training btn in header for coaches/officers
+    const schedBtn = document.getElementById('schedule-training-btn');
+    if (schedBtn) {
+      schedBtn.style.display = isCoachOrOfficer(user) ? 'inline-flex' : 'none';
+    }
   }
 
   handlePhotoUpload(inputEl) {
@@ -163,7 +175,7 @@ class AuthModule {
         user.Avatar = base64Image;
         store.saveMember(user);
         this.renderUserProfileCard();
-        alert('📷 Profile photo updated successfully!');
+        alert('📷 Profile photo updated!');
       }
     };
     reader.readAsDataURL(file);
@@ -176,11 +188,10 @@ class AuthModule {
     store.addAttendanceLog(user.MemberID);
     this.renderUserProfileCard();
 
-    alert('📍 Attendance Check-In Recorded!\nSent to Google Sheets for Coach approval.');
+    alert('📍 Attendance Check-In Recorded!\nSent for Coach/Officer approval.');
   }
 
   handleGoogleSignIn() {
-    // Prompt for Google account details (simulated OAuth)
     const name = prompt('Enter your full name (Last, First M.):');
     if (!name || !name.trim()) return;
 
@@ -192,6 +203,9 @@ class AuthModule {
 
     alert(`Google Authentication Successful!\nSigned in as: ${member.FullName}`);
     app.switchScreen('home-screen');
+
+    // Background sync
+    this._syncFromSheets();
   }
 
   handleRegister() {
@@ -210,7 +224,7 @@ class AuthModule {
     }
 
     if (password.length < 6) {
-      alert('Password must be at least 6 characters long.');
+      alert('Password must be at least 6 characters.');
       return;
     }
 
@@ -220,7 +234,7 @@ class AuthModule {
     }
 
     if (!privacyConsent) {
-      alert('Please accept the Data Privacy notice to create an account.');
+      alert('Please accept the Data Privacy notice.');
       return;
     }
 
@@ -255,7 +269,7 @@ class AuthModule {
     store.setCurrentUser(newMember);
     this.renderUserProfileCard();
 
-    alert(`Account created successfully! Welcome to IYDV ONEUP, ${fullName}.`);
+    alert(`Account created! Welcome to IYDV ONEUP, ${fullName}.`);
     app.switchScreen('home-screen');
   }
 
@@ -275,7 +289,7 @@ class AuthModule {
     );
 
     if (!found) {
-      alert('Member account not found. Please check your credentials or create a new account.');
+      alert('Account not found. Check your credentials or create a new account.');
       return;
     }
 
@@ -286,8 +300,36 @@ class AuthModule {
 
     store.setCurrentUser(found);
     this.renderUserProfileCard();
-    alert(`Welcome back, ${found.FullName}!`);
+
+    // Show sync indicator briefly
+    const syncNote = document.createElement('div');
+    syncNote.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(255,107,53,0.9);color:#fff;padding:6px 16px;border-radius:20px;font-size:0.72rem;font-family:Outfit,sans-serif;font-weight:700;z-index:9999;letter-spacing:0.5px;';
+    syncNote.textContent = '⟳ Syncing from Sheets...';
+    document.body.appendChild(syncNote);
+
     app.switchScreen('home-screen');
+
+    // Background sync from Sheets after login
+    this._syncFromSheets().then(() => {
+      syncNote.textContent = '✓ Synced with Sheets';
+      syncNote.style.background = 'rgba(48,209,88,0.9)';
+      setTimeout(() => syncNote.remove(), 1800);
+      // Refresh panels after sync
+      this.renderUserProfileCard();
+      if (window.scheduleModule) scheduleModule.renderAllPanels();
+    }).catch(() => {
+      syncNote.remove();
+    });
+  }
+
+  async _syncFromSheets() {
+    try {
+      await store.syncMembersFromSheets();
+      await store.syncAttendanceFromSheets();
+      await store.syncSchedulesFromSheets();
+    } catch (e) {
+      console.warn('[Auth] Sheets sync failed:', e.message);
+    }
   }
 
   handleSaveStats() {

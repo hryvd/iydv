@@ -1,3 +1,8 @@
+/* ==========================================================================
+   IYDV ONEUP - Data Store & Google Sheets API
+   localStorage primary store + Google Sheets bidirectional sync
+   ========================================================================== */
+
 const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby27n7FzyFCnaLdDVstuLJBl4grnhn9FFOvny-AAymWKlQVQONgZTHBT3gdtSM6eIDdAQ/exec';
 
 const STORAGE_KEYS = {
@@ -8,7 +13,9 @@ const STORAGE_KEYS = {
   GOALS: 'iydv_goals',
   SKILLS: 'iydv_skills',
   DRILLS_REF: 'iydv_drills_ref',
+  CUSTOM_DRILLS: 'iydv_custom_drills',
   ATTENDANCE: 'iydv_attendance',
+  TRAINING_SCHEDULES: 'iydv_training_schedules',
   APPS_SCRIPT_URL: 'iydv_apps_script_url'
 };
 
@@ -58,13 +65,28 @@ const DRILLS_REFERENCE = [
   { Category: 'Gym - Whole Body', Name: 'Diamond Push Up', Type: 'Strength' }
 ];
 
+// ── Role Helpers ──────────────────────────────────────────
+function isCoachOrOfficer(user) {
+  if (!user) return false;
+  return user.Rank === 'Team Captain' || user.Rank === 'Alumni';
+}
+
+function isCoach(user) {
+  if (!user) return false;
+  return user.Rank === 'Alumni';
+}
+
+function isOfficer(user) {
+  if (!user) return false;
+  return user.Rank === 'Team Captain';
+}
+
 class DataStore {
   constructor() {
     this.init();
   }
 
   init() {
-    // Initialize empty arrays for user data if not present
     if (!localStorage.getItem(STORAGE_KEYS.MEMBERS)) {
       localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify([]));
     }
@@ -82,6 +104,12 @@ class DataStore {
     }
     if (!localStorage.getItem(STORAGE_KEYS.ATTENDANCE)) {
       localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify([]));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.TRAINING_SCHEDULES)) {
+      localStorage.setItem(STORAGE_KEYS.TRAINING_SCHEDULES, JSON.stringify([]));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.CUSTOM_DRILLS)) {
+      localStorage.setItem(STORAGE_KEYS.CUSTOM_DRILLS, JSON.stringify([]));
     }
     // Always refresh drills reference catalog
     localStorage.setItem(STORAGE_KEYS.DRILLS_REF, JSON.stringify(DRILLS_REFERENCE));
@@ -117,7 +145,6 @@ class DataStore {
     const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
     if (!data) return null;
     const user = JSON.parse(data);
-    // Verify the user object has the required fields
     if (!user || !user.MemberID) return null;
     return user;
   }
@@ -142,7 +169,6 @@ class DataStore {
     logArray.forEach(log => {
       log.LogID = log.LogID || 'L' + String(Date.now() + Math.floor(Math.random() * 1000)).slice(-7);
       logs.unshift(log);
-      // Sync each record individually to Google Sheets
       this.postToSheets('Workout Logs', log);
     });
     this.setItem(STORAGE_KEYS.WORKOUT_LOGS, logs);
@@ -254,7 +280,7 @@ class DataStore {
       FullName: member.FullName,
       Time: timeStr,
       Status: 'Pending Approval',
-      ApprovedBy: 'Pending Coach'
+      ApprovedBy: ''
     };
 
     logs.unshift(newLog);
@@ -263,23 +289,62 @@ class DataStore {
     return newLog;
   }
 
-  approveAttendance(logId, coachName = 'Coach Santos') {
+  approveAttendance(logId, approverName) {
     const logs = this.getAttendanceLogs();
     const idx = logs.findIndex(l => l.LogID === logId);
     if (idx >= 0) {
       logs[idx].Status = 'Approved';
-      logs[idx].ApprovedBy = coachName;
+      logs[idx].ApprovedBy = approverName || 'Admin';
+      logs[idx].ApprovedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       this.setItem(STORAGE_KEYS.ATTENDANCE, logs);
       this.postToSheets('Attendance Logs', logs[idx]);
     }
   }
 
+  // ── Drills Reference (built-in + custom) ─────────────────
   getDrillsReference(category = null) {
-    const list = this.getItem(STORAGE_KEYS.DRILLS_REF);
-    if (!category) return list;
-    return list.filter(d => d.Category.toLowerCase().includes(category.toLowerCase()));
+    const builtIn = this.getItem(STORAGE_KEYS.DRILLS_REF);
+    const custom = this.getItem(STORAGE_KEYS.CUSTOM_DRILLS);
+    const all = [...builtIn, ...custom];
+    if (!category) return all;
+    return all.filter(d => d.Category.toLowerCase().includes(category.toLowerCase()));
   }
 
+  saveCustomDrill(drill) {
+    const custom = this.getItem(STORAGE_KEYS.CUSTOM_DRILLS);
+    drill.DrillID = drill.DrillID || 'DR' + String(Date.now()).slice(-6);
+    drill.IsCustom = true;
+    custom.push(drill);
+    this.setItem(STORAGE_KEYS.CUSTOM_DRILLS, custom);
+    this.postToSheets('Drill Catalog', drill);
+    return drill;
+  }
+
+  // ── Training Schedules ───────────────────────────────────
+  getTrainingSchedules() {
+    return this.getItem(STORAGE_KEYS.TRAINING_SCHEDULES);
+  }
+
+  getUpcomingSchedule() {
+    const schedules = this.getTrainingSchedules();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const upcoming = schedules
+      .filter(s => new Date(s.Date) >= today)
+      .sort((a, b) => new Date(a.Date) - new Date(b.Date));
+    return upcoming[0] || null;
+  }
+
+  saveTrainingSchedule(schedule) {
+    const schedules = this.getTrainingSchedules();
+    schedule.ScheduleID = schedule.ScheduleID || 'SCH' + String(Date.now()).slice(-6);
+    schedules.unshift(schedule);
+    this.setItem(STORAGE_KEYS.TRAINING_SCHEDULES, schedules);
+    this.postToSheets('Training Schedules', schedule);
+    return schedule;
+  }
+
+  // ── BMI ───────────────────────────────────────────────────
   calculateBMI(member) {
     if (member.WeightKg > 0 && member.HeightCm > 0) {
       const heightM = member.HeightCm / 100;
@@ -324,7 +389,7 @@ class DataStore {
     return member;
   }
 
-  // ── Google Sheets API ────────────────────────────────────
+  // ── Google Sheets / Apps Script API ─────────────────────
   getAppsScriptUrl() {
     return localStorage.getItem(STORAGE_KEYS.APPS_SCRIPT_URL) || DEFAULT_APPS_SCRIPT_URL;
   }
@@ -333,10 +398,6 @@ class DataStore {
     localStorage.setItem(STORAGE_KEYS.APPS_SCRIPT_URL, url.trim());
   }
 
-  /**
-   * POST a single record to Google Sheets via Apps Script doPost.
-   * Apps Script returns JSON with CORS headers, so we use default mode.
-   */
   async postToSheets(sheetName, record) {
     const url = this.getAppsScriptUrl();
     if (!url) return null;
@@ -356,11 +417,6 @@ class DataStore {
     }
   }
 
-  /**
-   * GET records from Google Sheets via Apps Script doGet.
-   * @param {string} sheetName - e.g. 'Members', 'Workout Logs'
-   * @param {Object} filters - e.g. { MemberID: 'M001' }
-   */
   async fetchFromSheets(sheetName, filters = {}) {
     const url = this.getAppsScriptUrl();
     if (!url) return null;
@@ -375,6 +431,81 @@ class DataStore {
       console.warn(`[Sheets GET] ${sheetName} fetch error:`, err.message);
       return null;
     }
+  }
+
+  /**
+   * Pull Members sheet from Sheets and merge into localStorage.
+   * Local data is overwritten by Sheets data for matching MemberIDs.
+   */
+  async syncMembersFromSheets() {
+    const data = await this.fetchFromSheets('Members');
+    if (!Array.isArray(data) || data.length === 0) return false;
+
+    const localMembers = this.getMembers();
+    data.forEach(sheetMember => {
+      if (!sheetMember.MemberID) return;
+      const idx = localMembers.findIndex(m => m.MemberID === sheetMember.MemberID);
+      if (idx >= 0) {
+        localMembers[idx] = { ...localMembers[idx], ...sheetMember };
+      } else {
+        localMembers.push(sheetMember);
+      }
+    });
+    this.setItem(STORAGE_KEYS.MEMBERS, localMembers);
+
+    // Refresh current user if exists
+    const curr = this.getCurrentUser();
+    if (curr) {
+      const updated = localMembers.find(m => m.MemberID === curr.MemberID);
+      if (updated) this.setCurrentUser(updated);
+    }
+
+    console.log('[Sheets SYNC] Members synced:', data.length, 'records');
+    return true;
+  }
+
+  /**
+   * Pull Attendance Logs from Sheets and merge.
+   */
+  async syncAttendanceFromSheets() {
+    const data = await this.fetchFromSheets('Attendance Logs');
+    if (!Array.isArray(data) || data.length === 0) return false;
+
+    const local = this.getAttendanceLogs();
+    data.forEach(sheetLog => {
+      if (!sheetLog.LogID) return;
+      const idx = local.findIndex(l => l.LogID === sheetLog.LogID);
+      if (idx >= 0) {
+        local[idx] = { ...local[idx], ...sheetLog };
+      } else {
+        local.unshift(sheetLog);
+      }
+    });
+    this.setItem(STORAGE_KEYS.ATTENDANCE, local);
+    console.log('[Sheets SYNC] Attendance synced:', data.length, 'records');
+    return true;
+  }
+
+  /**
+   * Pull Training Schedules from Sheets and merge.
+   */
+  async syncSchedulesFromSheets() {
+    const data = await this.fetchFromSheets('Training Schedules');
+    if (!Array.isArray(data) || data.length === 0) return false;
+
+    const local = this.getTrainingSchedules();
+    data.forEach(sheetSched => {
+      if (!sheetSched.ScheduleID) return;
+      const idx = local.findIndex(s => s.ScheduleID === sheetSched.ScheduleID);
+      if (idx >= 0) {
+        local[idx] = { ...local[idx], ...sheetSched };
+      } else {
+        local.unshift(sheetSched);
+      }
+    });
+    this.setItem(STORAGE_KEYS.TRAINING_SCHEDULES, local);
+    console.log('[Sheets SYNC] Schedules synced:', data.length, 'records');
+    return true;
   }
 }
 

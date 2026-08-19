@@ -1,6 +1,6 @@
 /* ==========================================================================
    IYDV ONEUP - Regular & Contemporary Drills Module
-   Checkbox only fills after confirming completion, then batch submit.
+   Coach/Officer can add custom drills to the catalog.
    ========================================================================== */
 
 class DrillsModule {
@@ -10,7 +10,25 @@ class DrillsModule {
   }
 
   init() {
-    this.renderDrills();
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        this.renderDrills();
+        this.bindModalEvents();
+      });
+    } else {
+      this.renderDrills();
+      this.bindModalEvents();
+    }
+  }
+
+  bindModalEvents() {
+    const form = document.getElementById('add-drill-form');
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.handleSaveDrill();
+      });
+    }
   }
 
   renderDrills() {
@@ -22,10 +40,13 @@ class DrillsModule {
     const container = document.getElementById(containerId);
     if (!container) return;
 
+    const user = store.getCurrentUser();
+    const canManage = isCoachOrOfficer(user);
+
     const drills = store.getDrillsReference().filter(d => d.Category === categoryName);
 
     if (drills.length === 0) {
-      container.innerHTML = `<div class="text-center" style="color:var(--text-muted); padding:16px;">No drills found.</div>`;
+      container.innerHTML = `<div class="text-center" style="color:var(--text-tertiary); padding:16px;">No drills found.</div>`;
       return;
     }
 
@@ -33,6 +54,15 @@ class DrillsModule {
     const completedCount = Object.keys(completed).length;
 
     container.innerHTML = `
+      ${canManage ? `
+        <div class="admin-section-header" style="margin-bottom:10px;">
+          <span style="font-size:0.7rem; color:var(--text-tertiary);">Tap to complete</span>
+          <button class="admin-add-btn" onclick="drillsModule.openAddDrillModal('${categoryName}')">
+            <i data-lucide="plus" style="width:13px;height:13px;"></i> ADD DRILL
+          </button>
+        </div>
+      ` : ''}
+
       <form id="${categoryName.replace(/\s+/g, '-').toLowerCase()}-form">
         ${drills.map((drill, index) => {
           const inputId = `drill-chk-${categoryName.replace(/\s+/g, '')}-${index}`;
@@ -43,7 +73,7 @@ class DrillsModule {
                  onclick="${isCompleted ? '' : `drillsModule.confirmDrillCompletion('${categoryName}', '${drill.Name.replace(/'/g, "\\'")}')`}"
                  style="cursor:${isCompleted ? 'default' : 'pointer'}; ${isCompleted ? 'opacity:0.85;' : ''}">
               <div class="drill-checklist-label">
-                <span class="drill-name">${drill.Name}</span>
+                <span class="drill-name">${drill.Name}${drill.IsCustom ? ' <span style="font-size:0.55rem;opacity:0.8;">★ CUSTOM</span>' : ''}</span>
                 <input type="checkbox" id="${inputId}" class="drill-checkbox" data-name="${drill.Name}" data-category="${categoryName}"
                        ${isCompleted ? 'checked' : ''} onclick="event.preventDefault(); event.stopPropagation();" readonly>
                 <span class="custom-checkbox-ui">${isCompleted ? '' : ''}</span>
@@ -52,11 +82,10 @@ class DrillsModule {
           `;
         }).join('')}
 
-        <div style="margin-top: 18px; text-align: center;">
-          <button type="button" class="btn btn-secondary ${completedCount === 0 ? 'btn-disabled' : ''}"
+        <div style="margin-top: 16px; text-align: center;">
+          <button type="button" class="btn btn-crimson ${completedCount === 0 ? 'btn-disabled' : ''}"
                   onclick="drillsModule.submitDrillBatch('${categoryName}')"
-                  ${completedCount === 0 ? 'disabled' : ''}
-                  style="background: ${completedCount > 0 ? 'var(--primary-crimson)' : '#ccc'}; padding: 14px 20px;">
+                  ${completedCount === 0 ? 'disabled' : ''}>
             <i data-lucide="check-circle"></i> SUBMIT ${categoryName.toUpperCase()}S (${completedCount})
           </button>
         </div>
@@ -75,7 +104,6 @@ class DrillsModule {
     }
     this.completedDrills[categoryName][drillName] = true;
 
-    // Re-render to update checkbox state
     const containerId = categoryName === 'Regular Drill' ? 'regular-drills-list' : 'contemporary-drills-list';
     this.renderDrillChecklist(containerId, categoryName);
   }
@@ -109,7 +137,6 @@ class DrillsModule {
         Notes: `Completed in daily ${categoryName} checklist session`
       });
 
-      // Auto-add to skills if not present
       const existingSkill = store.getSkills(user.MemberID).find(s => s.SkillName === drillName);
       if (!existingSkill) {
         store.saveSkill({
@@ -128,16 +155,58 @@ class DrillsModule {
 
     store.addWorkoutLogsBatch(logBatch);
 
-    // Reset completed drills for this category
     this.completedDrills[categoryName] = {};
 
-    // Re-render checklist
     const containerId = categoryName === 'Regular Drill' ? 'regular-drills-list' : 'contemporary-drills-list';
     this.renderDrillChecklist(containerId, categoryName);
 
-    alert(`✅ ${logBatch.length} ${categoryName}(s) submitted and recorded in Sheets!`);
+    alert(`✅ ${logBatch.length} ${categoryName}(s) submitted and recorded!`);
 
     if (window.app) app.renderPreviousWorkoutsList();
+  }
+
+  // ── Add Drill (Coach/Officer) ──────────────────────────────
+  openAddDrillModal(defaultCategory = 'Regular Drill') {
+    const user = store.getCurrentUser();
+    if (!isCoachOrOfficer(user)) {
+      alert('Only coaches and officers can add drills.');
+      return;
+    }
+
+    const catSelect = document.getElementById('add-drill-category');
+    if (catSelect) catSelect.value = defaultCategory;
+
+    app.openModal('add-workout-drill-modal');
+  }
+
+  handleSaveDrill() {
+    const user = store.getCurrentUser();
+    if (!isCoachOrOfficer(user)) return;
+
+    const name = document.getElementById('add-item-name').value.trim();
+    const category = document.getElementById('add-drill-category').value;
+    const type = document.getElementById('add-drill-type').value.trim() || 'Custom';
+    const notes = document.getElementById('add-item-notes').value.trim();
+
+    if (!name || !category) {
+      alert('Please fill in the drill name and category.');
+      return;
+    }
+
+    store.saveCustomDrill({
+      Name: name,
+      Category: category,
+      Type: type,
+      Notes: notes,
+      AddedBy: user.FullName,
+      DateAdded: new Date().toISOString().split('T')[0]
+    });
+
+    app.closeModal('add-workout-drill-modal');
+    document.getElementById('add-drill-form').reset();
+    this.renderDrills();
+
+    alert(`✅ "${name}" added to ${category} catalog!`);
   }
 }
 
