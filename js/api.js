@@ -1,6 +1,4 @@
-/* ==========================================================================
-   IYDV ONEUP - API & Persistence Layer (Data Store & Google Sheets Sync)
-   ========================================================================== */
+const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby27n7FzyFCnaLdDVstuLJBl4grnhn9FFOvny-AAymWKlQVQONgZTHBT3gdtSM6eIDdAQ/exec';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'iydv_current_user',
@@ -328,7 +326,7 @@ class DataStore {
 
   // ── Google Sheets API ────────────────────────────────────
   getAppsScriptUrl() {
-    return localStorage.getItem(STORAGE_KEYS.APPS_SCRIPT_URL) || '';
+    return localStorage.getItem(STORAGE_KEYS.APPS_SCRIPT_URL) || DEFAULT_APPS_SCRIPT_URL;
   }
 
   setAppsScriptUrl(url) {

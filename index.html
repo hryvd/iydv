@@ -237,7 +237,7 @@
             </div>
           </div>
 
-          <div class="action-tile" data-screen="drills-screen">
+          <div class="action-tile" data-screen="gym-screen" data-subtab="drills">
             <div class="tile-icon"><i data-lucide="check-square"></i></div>
             <div>
               <div class="tile-title">REGULAR DRILLS</div>
@@ -245,7 +245,7 @@
             </div>
           </div>
 
-          <div class="action-tile" data-screen="drills-screen">
+          <div class="action-tile" data-screen="gym-screen" data-subtab="drills">
             <div class="tile-icon"><i data-lucide="zap"></i></div>
             <div>
               <div class="tile-title">CONTEMPORARY</div>
@@ -253,7 +253,7 @@
             </div>
           </div>
 
-          <div class="action-tile" data-screen="goals-screen">
+          <div class="action-tile" data-screen="goals-screen" data-subtab="goals">
             <div class="tile-icon"><i data-lucide="target"></i></div>
             <div>
               <div class="tile-title">MY GOALS</div>
@@ -261,7 +261,7 @@
             </div>
           </div>
 
-          <div class="action-tile" data-screen="skills-screen">
+          <div class="action-tile" data-screen="goals-screen" data-subtab="skills">
             <div class="tile-icon"><i data-lucide="award"></i></div>
             <div>
               <div class="tile-title">SKILLS LEARNED</div>
@@ -270,7 +270,7 @@
           </div>
         </div>
 
-        <button class="btn btn-primary mb-3" data-screen="gym-screen">
+        <button class="btn btn-primary mb-3" data-screen="gym-screen" data-subtab="gym">
           <i data-lucide="dumbbell"></i> GYM WORKOUTS LOG
         </button>
 
@@ -280,140 +280,118 @@
 
       </section>
 
-      <!-- ================= GYM WORKOUTS SCREEN ================= -->
+      <!-- ================= TRAINING SCREEN (GYM & DRILLS) ================= -->
       <section id="gym-screen" class="screen">
-        <div class="card mb-3">
-          <div class="card-title mb-2">
-            <i data-lucide="dumbbell"></i> GYM WORKOUTS
-          </div>
-          <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:12px;">Select routine program to open exercise checklist</p>
+        <div class="apple-segmented-control mb-3">
+          <button id="training-subtab-gym" class="segmented-btn active" onclick="app.switchTrainingSubtab('gym')">Gym Routines</button>
+          <button id="training-subtab-drills" class="segmented-btn" onclick="app.switchTrainingSubtab('drills')">Drills Checklist</button>
+        </div>
 
-          <div class="d-flex gap-2 mb-3" style="overflow-x:auto; padding-bottom:4px;">
-            <button class="btn btn-sm btn-primary program-select-btn active" data-program="Push" style="width:auto; white-space:nowrap;">Push</button>
-            <button class="btn btn-sm btn-outline program-select-btn" data-program="Pull" style="width:auto; white-space:nowrap;">Pull</button>
-            <button class="btn btn-sm btn-outline program-select-btn" data-program="Legs" style="width:auto; white-space:nowrap;">Legs</button>
-            <button class="btn btn-sm btn-outline program-select-btn" data-program="Back" style="width:auto; white-space:nowrap;">Back</button>
-            <button class="btn btn-sm btn-outline program-select-btn" data-program="Whole Body" style="width:auto; white-space:nowrap;">Whole Body</button>
+        <!-- Subtab 1: Gym Routines -->
+        <div id="training-gym-view">
+          <div class="card mb-3">
+            <div class="card-title mb-2">
+              <i data-lucide="dumbbell"></i> GYM WORKOUTS
+            </div>
+            <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:12px;">Select routine program to open exercise checklist</p>
+
+            <div class="d-flex gap-2 mb-3" style="overflow-x:auto; padding-bottom:4px;">
+              <button class="btn btn-sm btn-primary program-select-btn active" data-program="Push" style="width:auto; white-space:nowrap;">Push</button>
+              <button class="btn btn-sm btn-outline program-select-btn" data-program="Pull" style="width:auto; white-space:nowrap;">Pull</button>
+              <button class="btn btn-sm btn-outline program-select-btn" data-program="Legs" style="width:auto; white-space:nowrap;">Legs</button>
+              <button class="btn btn-sm btn-outline program-select-btn" data-program="Back" style="width:auto; white-space:nowrap;">Back</button>
+              <button class="btn btn-sm btn-outline program-select-btn" data-program="Whole Body" style="width:auto; white-space:nowrap;">Whole Body</button>
+            </div>
+          </div>
+
+          <div id="gym-exercise-list">
+            <!-- Rendered by Gym Module -->
           </div>
         </div>
 
-        <div id="gym-exercise-list">
-          <!-- Rendered by Gym Module -->
+        <!-- Subtab 2: Drills Checklist -->
+        <div id="training-drills-view" style="display:none;">
+          <div class="card mb-3">
+            <div class="card-title mb-2" style="font-family:var(--font-display); font-size:1.2rem; color:var(--orange); font-weight:900;">
+              CONTEMPORARY DRILLS
+            </div>
+            <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:14px;">Recommended conditioning & dance drills for varsity practice.</p>
+
+            <div id="contemporary-drills-list">
+              <!-- Rendered by Drills Module -->
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title mb-2">
+              <i data-lucide="check-square"></i> REGULAR DRILLS
+            </div>
+            <div id="regular-drills-list">
+              <!-- Rendered by Drills Module -->
+            </div>
+          </div>
         </div>
       </section>
 
-      <!-- ================= DAILY WEIGHT SCREEN ================= -->
-      <section id="weight-screen" class="screen">
-        <div class="card mb-3">
-          <div class="card-header">
-            <div class="card-title">
-              <i data-lucide="scale"></i> DAILY WEIGHT LOGS
-            </div>
-            <button class="btn btn-sm btn-primary" onclick="weightModule.openWeightModal()" style="width:auto;">
-              + Log Today
+      <!-- ================= PROGRESS SCREEN (GOALS, SKILLS & WEIGHT) ================= -->
+      <section id="goals-screen" class="screen">
+        <div class="apple-segmented-control mb-3">
+          <button id="progress-subtab-goals" class="segmented-btn active" onclick="app.switchProgressSubtab('goals')">Goals</button>
+          <button id="progress-subtab-skills" class="segmented-btn" onclick="app.switchProgressSubtab('skills')">Skills</button>
+          <button id="progress-subtab-weight" class="segmented-btn" onclick="app.switchProgressSubtab('weight')">Weight</button>
+        </div>
+
+        <!-- Subtab 1: Goals -->
+        <div id="progress-goals-view">
+          <div class="d-flex justify-between align-center mb-3">
+            <h2 style="font-family:var(--font-display); font-size:1.05rem; font-weight:800; color:var(--text-primary);">MY ATHLETIC GOALS</h2>
+            <button class="btn btn-sm btn-primary" onclick="goalsModule.openAddGoalModal()" style="width:auto;">
+              <i data-lucide="plus"></i> Add Goal
             </button>
           </div>
-          
-          <div class="chart-container">
-            <canvas id="weightTrendCanvas"></canvas>
+
+          <div id="goals-list-container">
+            <!-- Rendered by Goals Module -->
           </div>
         </div>
 
-        <div class="card">
-          <div class="card-title mb-2">History & Delta</div>
-          <div id="weight-history-list">
-            <!-- Rendered by Weight Module -->
+        <!-- Subtab 2: Skills -->
+        <div id="progress-skills-view" style="display:none;">
+          <div class="d-flex justify-between align-center mb-3">
+            <h2 style="font-family:var(--font-display); font-size:1.05rem; font-weight:800; color:var(--text-primary);">SKILLS LEARNED</h2>
+            <button class="btn btn-sm btn-primary" onclick="skillsModule.openAddSkillModal()" style="width:auto;">
+              <i data-lucide="plus"></i> Add Skill
+            </button>
+          </div>
+
+          <div id="skills-list-container">
+            <!-- Rendered by Skills Module -->
           </div>
         </div>
-      </section>
 
-      <!-- ================= JOGGING TIMER SCREEN ================= -->
-      <section id="jogging-screen" class="screen">
-        <div class="card mb-3">
-          <div class="card-title mb-2">
-            <i data-lucide="timer"></i> JOGGING INTERVAL TIMER
-          </div>
-          <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:14px;">Protocol: E.g., 10 Min total = 8:30 Jog &rarr; 30s Sprint &rarr; 1:00 Cool Walk</p>
-
-          <div class="d-flex gap-2 justify-between mb-3">
-            <button class="btn btn-sm btn-primary preset-duration-btn" data-mins="10" style="width:30%;">10 Min</button>
-            <button class="btn btn-sm btn-outline preset-duration-btn" data-mins="15" style="width:30%;">15 Min</button>
-            <button class="btn btn-sm btn-outline preset-duration-btn" data-mins="20" style="width:30%;">20 Min</button>
-          </div>
-
-          <div class="timer-container">
-            <div id="jog-timer-circle" class="timer-circle">
-              <div id="jog-phase-label" class="phase-label">JOG</div>
-              <div id="jog-phase-time" class="time-display">08:30</div>
+        <!-- Subtab 3: Weight -->
+        <div id="progress-weight-view" style="display:none;">
+          <div class="card mb-3">
+            <div class="card-header">
+              <div class="card-title">
+                <i data-lucide="scale"></i> DAILY WEIGHT LOGS
+              </div>
+              <button class="btn btn-sm btn-primary" onclick="weightModule.openWeightModal()" style="width:auto;">
+                + Log Today
+              </button>
             </div>
             
-            <div id="jog-total-remaining" style="font-weight:700; font-size:0.85rem; color:var(--primary-crimson);">
-              Total Session Time: 10:00
-            </div>
-
-            <div class="timer-controls">
-              <button id="jog-start-btn" class="timer-btn timer-btn-start" title="Start Timer">
-                <i data-lucide="play"></i>
-              </button>
-              <button id="jog-pause-btn" class="timer-btn timer-btn-pause" title="Pause Timer" style="display:none;">
-                <i data-lucide="pause"></i>
-              </button>
-              <button id="jog-reset-btn" class="timer-btn timer-btn-reset" title="Reset Timer">
-                <i data-lucide="rotate-ccw"></i>
-              </button>
+            <div class="chart-container">
+              <canvas id="weightTrendCanvas"></canvas>
             </div>
           </div>
-        </div>
-      </section>
 
-      <!-- ================= DRILLS SCREEN ================= -->
-      <section id="drills-screen" class="screen">
-        <div class="card mb-3">
-          <div class="card-title mb-2" style="font-family:var(--font-heading); font-size:1.4rem; color:var(--primary-crimson); font-weight:900;">
-            CONTEMPORARY DRILLS
+          <div class="card">
+            <div class="card-title mb-2">History & Delta</div>
+            <div id="weight-history-list">
+              <!-- Rendered by Weight Module -->
+            </div>
           </div>
-          <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:14px;">Recommended conditioning & dance drills for varsity practice.</p>
-
-          <div id="contemporary-drills-list">
-            <!-- Rendered by Drills Module -->
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-title mb-2">
-            <i data-lucide="check-square"></i> REGULAR DRILLS
-          </div>
-          <div id="regular-drills-list">
-            <!-- Rendered by Drills Module -->
-          </div>
-        </div>
-      </section>
-
-      <!-- ================= GOALS SCREEN ================= -->
-      <section id="goals-screen" class="screen">
-        <div class="d-flex justify-between align-center mb-3">
-          <h2 style="font-family:var(--font-heading); font-size:1.15rem; font-weight:800; color:var(--primary-crimson);">MY ATHLETIC GOALS</h2>
-          <button class="btn btn-sm btn-primary" onclick="goalsModule.openAddGoalModal()" style="width:auto;">
-            <i data-lucide="plus"></i> Add Goal
-          </button>
-        </div>
-
-        <div id="goals-list-container">
-          <!-- Rendered by Goals Module -->
-        </div>
-      </section>
-
-      <!-- ================= SKILLS SCREEN ================= -->
-      <section id="skills-screen" class="screen">
-        <div class="d-flex justify-between align-center mb-3">
-          <h2 style="font-family:var(--font-heading); font-size:1.15rem; font-weight:800; color:var(--primary-crimson);">SKILLS LEARNED</h2>
-          <button class="btn btn-sm btn-primary" onclick="skillsModule.openAddSkillModal()" style="width:auto;">
-            <i data-lucide="plus"></i> Add Skill
-          </button>
-        </div>
-
-        <div id="skills-list-container">
-          <!-- Rendered by Skills Module -->
         </div>
       </section>
 
@@ -453,7 +431,7 @@
 
     </main>
 
-    <!-- Bottom Navigation Bar -->
+    <!-- Bottom Navigation Bar (Streamlined Apple 3-Tab Bar) -->
     <nav class="app-nav">
       <button class="nav-item active" data-screen="home-screen">
         <i data-lucide="home"></i>
@@ -461,19 +439,11 @@
       </button>
       <button class="nav-item" data-screen="gym-screen">
         <i data-lucide="dumbbell"></i>
-        <span>Gym</span>
-      </button>
-      <button class="nav-item" data-screen="drills-screen">
-        <i data-lucide="activity"></i>
-        <span>Drills</span>
+        <span>Training</span>
       </button>
       <button class="nav-item" data-screen="goals-screen">
-        <i data-lucide="target"></i>
-        <span>Goals</span>
-      </button>
-      <button class="nav-item" data-screen="skills-screen">
-        <i data-lucide="award"></i>
-        <span>Skills</span>
+        <i data-lucide="trending-up"></i>
+        <span>Progress</span>
       </button>
     </nav>
 

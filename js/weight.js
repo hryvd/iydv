@@ -134,7 +134,7 @@ class WeightModule {
     const range = maxW - minW || 1;
 
     // Draw background grid
-    ctx.strokeStyle = '#e5e7eb';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let i = 0; i <= 3; i++) {
@@ -143,7 +143,7 @@ class WeightModule {
       ctx.lineTo(width - padding, y);
 
       const val = (maxW - (i / 3) * range).toFixed(1);
-      ctx.fillStyle = '#9ca3af';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
       ctx.font = '10px Inter, sans-serif';
       ctx.fillText(`${val}kg`, 5, y + 3);
     }
@@ -186,14 +186,14 @@ class WeightModule {
     points.forEach((p) => {
       ctx.beginPath();
       ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-      ctx.fillStyle = '#580a0a';
+      ctx.fillStyle = '#ff6b35';
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
       ctx.stroke();
 
       // Label value
-      ctx.fillStyle = '#1f2937';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
       ctx.font = 'bold 10px Outfit, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(`${p.weight}`, p.x, p.y - 10);

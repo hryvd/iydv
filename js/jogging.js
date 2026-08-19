@@ -98,8 +98,10 @@ class JoggingModule {
   pauseTimer() {
     this.isRunning = false;
     clearInterval(this.timerInterval);
-    document.getElementById('jog-start-btn').style.display = 'inline-flex';
-    document.getElementById('jog-pause-btn').style.display = 'none';
+    const startBtn = document.getElementById('jog-start-btn');
+    const pauseBtn = document.getElementById('jog-pause-btn');
+    if (startBtn) startBtn.style.display = 'inline-flex';
+    if (pauseBtn) pauseBtn.style.display = 'none';
   }
 
   resetTimer() {
