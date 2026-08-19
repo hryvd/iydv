@@ -5,7 +5,7 @@
 class JoggingModule {
   constructor() {
     this.timerInterval = null;
-    this.totalSeconds = 10 * 60; // Default 10 min
+    this.totalSeconds = 11 * 60; // Default 11 min
     this.elapsedSeconds = 0;
     this.currentPhaseIndex = 0;
     this.phaseTimeRemaining = 0;
@@ -16,7 +16,7 @@ class JoggingModule {
 
   init() {
     this.bindEvents();
-    this.setDuration(10);
+    this.setDuration(11);
   }
 
   bindEvents() {

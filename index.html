@@ -395,6 +395,45 @@
         </div>
       </section>
 
+      <!-- ================= JOGGING TIMER SCREEN ================= -->
+      <section id="jogging-screen" class="screen">
+        <div class="card mb-3">
+          <div class="card-title mb-2">
+            <i data-lucide="timer"></i> JOGGING INTERVAL TIMER
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:14px;">Protocol: E.g., 11 Min total = 9:30 Jog &rarr; 30s Sprint &rarr; 1:00 Cool Walk</p>
+
+          <div class="d-flex gap-2 justify-between mb-3">
+            <button class="btn btn-sm btn-primary preset-duration-btn" data-mins="11" style="width:30%;">11 Min</button>
+            <button class="btn btn-sm btn-outline preset-duration-btn" data-mins="16" style="width:30%;">16 Min</button>
+            <button class="btn btn-sm btn-outline preset-duration-btn" data-mins="21" style="width:30%;">21 Min</button>
+          </div>
+
+          <div class="timer-container">
+            <div id="jog-timer-circle" class="timer-circle">
+              <div id="jog-phase-label" class="phase-label">JOG</div>
+              <div id="jog-phase-time" class="time-display">09:30</div>
+            </div>
+            
+            <div id="jog-total-remaining" style="font-weight:700; font-size:0.85rem; color:var(--orange);">
+              Total Session Time: 11:00
+            </div>
+
+            <div class="timer-controls">
+              <button id="jog-start-btn" class="timer-btn timer-btn-start" title="Start Timer">
+                <i data-lucide="play"></i>
+              </button>
+              <button id="jog-pause-btn" class="timer-btn timer-btn-pause" title="Pause Timer" style="display:none;">
+                <i data-lucide="pause"></i>
+              </button>
+              <button id="jog-reset-btn" class="timer-btn timer-btn-reset" title="Reset Timer">
+                <i data-lucide="rotate-ccw"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- ================= COACH DASHBOARD SCREEN ================= -->
       <section id="dashboard-screen" class="screen">
         <div class="card mb-3">
