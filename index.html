@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IYDV ONEUP - Indak Yaman Dance Varsity Fitness & Training Tracker</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- CSS Design System (Apple Glass) -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Hidden Profile Photo File Upload Input -->
+  <input type="file" id="profile-photo-input" accept="image/*" style="display:none;">
+
+  <div class="app-viewport-wrapper">
+    
+    <!-- Minimalist Apple Header Bar (No logo image yet as requested) -->
+    <header class="app-header">
+      <div class="brand-wrapper" onclick="app.switchScreen('home-screen')">
+        <span class="brand-title">IYDV ONEUP</span>
+        <span class="brand-sub">BATSTATE-U VARSITY</span>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" title="Team Dashboard" onclick="app.switchScreen('dashboard-screen')">
+          <i data-lucide="layout-dashboard"></i>
+        </button>
+        <button class="icon-btn" title="Google Sheets API Config" onclick="dashboardModule.openSheetsConfigModal()">
+          <i data-lucide="database"></i>
+        </button>
+        <button class="icon-btn" title="Sign Out" onclick="authModule.logout()">
+          <i data-lucide="log-out"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content App Body -->
+    <main class="app-content">
+
+      <!-- ================= WELCOME SCREEN ================= -->
+      <section id="welcome-screen" class="screen welcome-screen">
+        <div style="padding-top: 40px;">
+          <h1 class="welcome-title">Welcome to <span>IYDV ONEUP</span></h1>
+          <p style="font-size: 0.88rem; color: var(--text-muted); margin-top: 10px;">
+            BatState-U Indak Yaman Dance Varsity<br>Fitness, Training & Performance Tracker
+          </p>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 30px;">
+          <button class="btn btn-google google-signin-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+            Sign in with Google
+          </button>
+          <button class="btn btn-primary" onclick="app.switchScreen('login-screen')">LOGIN WITH USERNAME</button>
+          <button class="btn btn-secondary" onclick="app.switchScreen('create-account-screen')">CREATE ACCOUNT</button>
+        </div>
+      </section>
+
+      <!-- ================= LOGIN SCREEN ================= -->
+      <section id="login-screen" class="screen">
+        <div class="card" style="margin-top: 20px;">
+          <h2 style="font-family: var(--font-heading); font-weight: 800; color: var(--primary-crimson); font-size: 1.4rem; margin-bottom: 4px;">IYDV OneUp</h2>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 18px;">Sign in to access your varsity training logs</p>
+
+          <button class="btn btn-google google-signin-btn mb-3">
+            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+            Sign in with Google
+          </button>
+
+          <form id="login-form">
+            <div class="form-group">
+              <label class="form-label" for="login-username">Username or Institutional Email</label>
+              <input type="text" id="login-username" class="form-control" placeholder="e.g. hdimaano" required value="hdimaano">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="login-password">Password</label>
+              <div class="input-with-icon">
+                <input type="password" id="login-password" class="form-control" placeholder="••••••••" required value="password123">
+                <button type="button" class="input-icon-btn toggle-password-btn" data-target="login-password">
+                  <i data-lucide="eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-secondary mt-3">SIGN IN</button>
+          </form>
+
+          <div style="text-align: center; margin-top: 16px; font-size: 0.8rem; color: var(--text-muted);">
+            Don't have an account? <a href="#" onclick="app.switchScreen('create-account-screen'); return false;" style="color: var(--primary-crimson); font-weight: 700;">Create Account</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= CREATE ACCOUNT SCREEN ================= -->
+      <section id="create-account-screen" class="screen">
+        <div class="card" style="margin-top: 10px;">
+          <h2 style="font-family: var(--font-heading); font-weight: 800; color: var(--primary-crimson); font-size: 1.3rem;">Create an account</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 14px;">Register for the Indak Yaman Dance Varsity app</p>
+
+          <form id="create-account-form">
+            <div class="form-group">
+              <label class="form-label">Username *</label>
+              <input type="text" id="reg-username" class="form-control" placeholder="e.g. hdimaano" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Full Name (Last, First M.) *</label>
+              <input type="text" id="reg-fullname" class="form-control" placeholder="e.g., Dimaano, Harry V." required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Select Varsity Rank *</label>
+              <select id="reg-rank" class="form-control" required>
+                <option value="Rookie">Rookie (1st Year / Trainee)</option>
+                <option value="Regular">Regular Member</option>
+                <option value="Veteran">Veteran Member</option>
+                <option value="Team Captain">Team Captain / Officer</option>
+                <option value="Alumni">Alumni / Coach</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Institutional Email</label>
+              <input type="email" id="reg-email" class="form-control" placeholder="harry.dimaano@g.batstate-u.edu.ph">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Contact Number</label>
+              <input type="tel" id="reg-contact" class="form-control" placeholder="0917 000 0000">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Password * (Min 6 chars)</label>
+              <div class="input-with-icon">
+                <input type="password" id="reg-password" class="form-control" placeholder="••••••••" required>
+                <button type="button" class="input-icon-btn toggle-password-btn" data-target="reg-password">
+                  <i data-lucide="eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Confirm Password *</label>
+              <div class="input-with-icon">
+                <input type="password" id="reg-confirm-password" class="form-control" placeholder="••••••••" required>
+                <button type="button" class="input-icon-btn toggle-password-btn" data-target="reg-confirm-password">
+                  <i data-lucide="eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 12px;">
+              <input type="checkbox" id="reg-privacy-consent" required checked>
+              <label for="reg-privacy-consent">I consent to storing my athletic weight/height logs under <a href="#" onclick="app.openModal('privacy-modal'); return false;" style="color:var(--accent-orange); font-weight:700;">RA 10173 Data Privacy Notice</a>.</label>
+            </div>
+
+            <button type="submit" class="btn btn-secondary">CREATE ACCOUNT</button>
+          </form>
+
+          <div style="text-align: center; margin-top: 14px; font-size: 0.78rem;">
+            Already have an account? <a href="#" onclick="app.switchScreen('login-screen'); return false;" style="color: var(--primary-crimson); font-weight: 700;">Sign In here</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= HOMEPAGE SCREEN ================= -->
+      <section id="home-screen" class="screen active">
+        
+        <!-- PROMINENT ATTENDANCE BUTTON AT TOP (PRIMARY FOR MOBILE) -->
+        <div id="top-attendance-banner" class="top-attendance-container">
+          <!-- Rendered dynamically by Auth Module -->
+        </div>
+
+        <!-- Athlete Profile Banner Card -->
+        <div id="user-profile-card" class="profile-card mb-3">
+          <!-- Rendered dynamically by Auth module -->
+        </div>
+
+        <!-- Height / Weight / BMI Stat Grid -->
+        <div class="card mb-3">
+          <div class="stats-grid">
+            <div class="stat-box">
+              <div class="label">Weight (kg)</div>
+              <div id="user-weight-display" class="value">68 kg</div>
+              <div class="sub-value">Daily Log</div>
+            </div>
+            <div class="stat-box">
+              <div class="label">Height (cm)</div>
+              <div id="user-height-display" class="value">172 cm</div>
+              <div class="sub-value">Athletic</div>
+            </div>
+            <div class="stat-box">
+              <div class="label">BMI</div>
+              <div id="user-bmi-display" class="value">23.0</div>
+              <div id="user-bmi-category" class="sub-value">Normal</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tappable Previous Workouts Card -->
+        <div class="card mb-3">
+          <div class="card-header">
+            <div class="card-title">
+              <i data-lucide="history"></i> PREVIOUS WORKOUTS
+            </div>
+            <small style="font-size: 0.7rem; color: var(--text-muted);">Tappable for details</small>
+          </div>
+          <div id="previous-workouts-container">
+            <!-- Rendered by App Router -->
+          </div>
+        </div>
+
+        <!-- Action Grid Tiles -->
+        <div class="action-grid mb-3">
+          <div class="action-tile" onclick="weightModule.openWeightModal()">
+            <div class="tile-icon"><i data-lucide="scale"></i></div>
+            <div>
+              <div class="tile-title">WEIGHT TODAY</div>
+              <div class="tile-desc">Log daily weight & delta</div>
+            </div>
+          </div>
+
+          <div class="action-tile" data-screen="jogging-screen">
+            <div class="tile-icon"><i data-lucide="timer"></i></div>
+            <div>
+              <div class="tile-title">JOGGING</div>
+              <div class="tile-desc">Interval sprint protocol</div>
+            </div>
+          </div>
+
+          <div class="action-tile" data-screen="drills-screen">
+            <div class="tile-icon"><i data-lucide="check-square"></i></div>
+            <div>
+              <div class="tile-title">REGULAR DRILLS</div>
+              <div class="tile-desc">Push ups, planks, squats</div>
+            </div>
+          </div>
+
+          <div class="action-tile" data-screen="drills-screen">
+            <div class="tile-icon"><i data-lucide="zap"></i></div>
+            <div>
+              <div class="tile-title">CONTEMPORARY</div>
+              <div class="tile-desc">Dance cardio & tiptoes</div>
+            </div>
+          </div>
+
+          <div class="action-tile" data-screen="goals-screen">
+            <div class="tile-icon"><i data-lucide="target"></i></div>
+            <div>
+              <div class="tile-title">MY GOALS</div>
+              <div class="tile-desc">Strength & weight targets</div>
+            </div>
+          </div>
+
+          <div class="action-tile" data-screen="skills-screen">
+            <div class="tile-icon"><i data-lucide="award"></i></div>
+            <div>
+              <div class="tile-title">SKILLS LEARNED</div>
+              <div class="tile-desc">Technique proficiency</div>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary mb-3" data-screen="gym-screen">
+          <i data-lucide="dumbbell"></i> GYM WORKOUTS LOG
+        </button>
+
+        <button class="btn btn-secondary" onclick="reportsModule.openReportModal()">
+          <i data-lucide="file-text"></i> DOWNLOAD PROGRESS REPORT
+        </button>
+
+      </section>
+
+      <!-- ================= GYM WORKOUTS SCREEN ================= -->
+      <section id="gym-screen" class="screen">
+        <div class="card mb-3">
+          <div class="card-title mb-2">
+            <i data-lucide="dumbbell"></i> GYM WORKOUTS
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:12px;">Select routine program to open exercise checklist</p>
+
+          <div class="d-flex gap-2 mb-3" style="overflow-x:auto; padding-bottom:4px;">
+            <button class="btn btn-sm btn-primary program-select-btn active" data-program="Push" style="width:auto; white-space:nowrap;">Push</button>
+            <button class="btn btn-sm btn-outline program-select-btn" data-program="Pull" style="width:auto; white-space:nowrap;">Pull</button>
+            <button class="btn btn-sm btn-outline program-select-btn" data-program="Legs" style="width:auto; white-space:nowrap;">Legs</button>
+            <button class="btn btn-sm btn-outline program-select-btn" data-program="Back" style="width:auto; white-space:nowrap;">Back</button>
+            <button class="btn btn-sm btn-outline program-select-btn" data-program="Whole Body" style="width:auto; white-space:nowrap;">Whole Body</button>
+          </div>
+        </div>
+
+        <div id="gym-exercise-list">
+          <!-- Rendered by Gym Module -->
+        </div>
+      </section>
+
+      <!-- ================= DAILY WEIGHT SCREEN ================= -->
+      <section id="weight-screen" class="screen">
+        <div class="card mb-3">
+          <div class="card-header">
+            <div class="card-title">
+              <i data-lucide="scale"></i> DAILY WEIGHT LOGS
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="weightModule.openWeightModal()" style="width:auto;">
+              + Log Today
+            </button>
+          </div>
+          
+          <div class="chart-container">
+            <canvas id="weightTrendCanvas"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title mb-2">History & Delta</div>
+          <div id="weight-history-list">
+            <!-- Rendered by Weight Module -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= JOGGING TIMER SCREEN ================= -->
+      <section id="jogging-screen" class="screen">
+        <div class="card mb-3">
+          <div class="card-title mb-2">
+            <i data-lucide="timer"></i> JOGGING INTERVAL TIMER
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:14px;">Protocol: E.g., 10 Min total = 8:30 Jog &rarr; 30s Sprint &rarr; 1:00 Cool Walk</p>
+
+          <div class="d-flex gap-2 justify-between mb-3">
+            <button class="btn btn-sm btn-primary preset-duration-btn" data-mins="10" style="width:30%;">10 Min</button>
+            <button class="btn btn-sm btn-outline preset-duration-btn" data-mins="15" style="width:30%;">15 Min</button>
+            <button class="btn btn-sm btn-outline preset-duration-btn" data-mins="20" style="width:30%;">20 Min</button>
+          </div>
+
+          <div class="timer-container">
+            <div id="jog-timer-circle" class="timer-circle">
+              <div id="jog-phase-label" class="phase-label">JOG</div>
+              <div id="jog-phase-time" class="time-display">08:30</div>
+            </div>
+            
+            <div id="jog-total-remaining" style="font-weight:700; font-size:0.85rem; color:var(--primary-crimson);">
+              Total Session Time: 10:00
+            </div>
+
+            <div class="timer-controls">
+              <button id="jog-start-btn" class="timer-btn timer-btn-start" title="Start Timer">
+                <i data-lucide="play"></i>
+              </button>
+              <button id="jog-pause-btn" class="timer-btn timer-btn-pause" title="Pause Timer" style="display:none;">
+                <i data-lucide="pause"></i>
+              </button>
+              <button id="jog-reset-btn" class="timer-btn timer-btn-reset" title="Reset Timer">
+                <i data-lucide="rotate-ccw"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= DRILLS SCREEN ================= -->
+      <section id="drills-screen" class="screen">
+        <div class="card mb-3">
+          <div class="card-title mb-2" style="font-family:var(--font-heading); font-size:1.4rem; color:var(--primary-crimson); font-weight:900;">
+            CONTEMPORARY DRILLS
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:14px;">Recommended conditioning & dance drills for varsity practice.</p>
+
+          <div id="contemporary-drills-list">
+            <!-- Rendered by Drills Module -->
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title mb-2">
+            <i data-lucide="check-square"></i> REGULAR DRILLS
+          </div>
+          <div id="regular-drills-list">
+            <!-- Rendered by Drills Module -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= GOALS SCREEN ================= -->
+      <section id="goals-screen" class="screen">
+        <div class="d-flex justify-between align-center mb-3">
+          <h2 style="font-family:var(--font-heading); font-size:1.15rem; font-weight:800; color:var(--primary-crimson);">MY ATHLETIC GOALS</h2>
+          <button class="btn btn-sm btn-primary" onclick="goalsModule.openAddGoalModal()" style="width:auto;">
+            <i data-lucide="plus"></i> Add Goal
+          </button>
+        </div>
+
+        <div id="goals-list-container">
+          <!-- Rendered by Goals Module -->
+        </div>
+      </section>
+
+      <!-- ================= SKILLS SCREEN ================= -->
+      <section id="skills-screen" class="screen">
+        <div class="d-flex justify-between align-center mb-3">
+          <h2 style="font-family:var(--font-heading); font-size:1.15rem; font-weight:800; color:var(--primary-crimson);">SKILLS LEARNED</h2>
+          <button class="btn btn-sm btn-primary" onclick="skillsModule.openAddSkillModal()" style="width:auto;">
+            <i data-lucide="plus"></i> Add Skill
+          </button>
+        </div>
+
+        <div id="skills-list-container">
+          <!-- Rendered by Skills Module -->
+        </div>
+      </section>
+
+      <!-- ================= COACH DASHBOARD SCREEN ================= -->
+      <section id="dashboard-screen" class="screen">
+        <div class="card mb-3">
+          <div class="card-header">
+            <div class="card-title">
+              <i data-lucide="users"></i> TEAM DASHBOARD
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="dashboardModule.openSheetsConfigModal()" style="width:auto;">
+              <i data-lucide="database"></i> Sheets Sync
+            </button>
+          </div>
+          
+          <div id="team-metrics-grid" class="stats-grid mb-3" style="grid-template-columns:repeat(2, 1fr);">
+            <!-- Rendered by Dashboard Module -->
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-title mb-2">
+            <i data-lucide="map-pin"></i> ATTENDANCE APPROVALS (GOOGLE SHEETS)
+          </div>
+          <div id="attendance-approvals-list">
+            <!-- Rendered by Dashboard Module -->
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title mb-2">Varsity Athlete Roster</div>
+          <div id="team-roster-list">
+            <!-- Rendered by Dashboard Module -->
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="app-nav">
+      <button class="nav-item active" data-screen="home-screen">
+        <i data-lucide="home"></i>
+        <span>Home</span>
+      </button>
+      <button class="nav-item" data-screen="gym-screen">
+        <i data-lucide="dumbbell"></i>
+        <span>Gym</span>
+      </button>
+      <button class="nav-item" data-screen="drills-screen">
+        <i data-lucide="activity"></i>
+        <span>Drills</span>
+      </button>
+      <button class="nav-item" data-screen="goals-screen">
+        <i data-lucide="target"></i>
+        <span>Goals</span>
+      </button>
+      <button class="nav-item" data-screen="skills-screen">
+        <i data-lucide="award"></i>
+        <span>Skills</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- Modal: Edit Profile Stats -->
+  <div id="edit-stats-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">Edit Athlete Profile</div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <form id="edit-stats-form">
+        <div class="form-group">
+          <label class="form-label">Body Weight (kg)</label>
+          <input type="number" step="0.1" id="edit-weight-input" class="form-control" required value="68.0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Height (cm)</label>
+          <input type="number" id="edit-height-input" class="form-control" required value="172">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Primary Program Focus</label>
+          <select id="edit-program-input" class="form-control">
+            <option value="Whole Body">Whole Body</option>
+            <option value="Push">Push</option>
+            <option value="Pull">Pull</option>
+            <option value="Legs">Legs</option>
+            <option value="Back">Back</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary mt-2">SAVE CHANGES</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Rest Timer Popup -->
+  <div id="rest-timer-modal" class="modal-overlay">
+    <div class="modal-card text-center" style="max-width:320px;">
+      <div style="font-family:var(--font-heading); font-weight:800; font-size:1.1rem; color:var(--primary-crimson); margin-bottom:8px;">REST TIMER</div>
+      <div id="rest-timer-countdown" style="font-family:var(--font-heading); font-size:3rem; font-weight:900; color:var(--accent-orange);">01:00</div>
+      <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:14px;">Catch your breath before your next set</p>
+      
+      <div class="d-flex gap-2 justify-between mb-3">
+        <button class="btn btn-sm btn-outline" onclick="gymModule.startRestTimer(60)">60s</button>
+        <button class="btn btn-sm btn-outline" onclick="gymModule.startRestTimer(90)">90s</button>
+        <button class="btn btn-sm btn-outline" onclick="gymModule.startRestTimer(120)">120s</button>
+      </div>
+
+      <button class="btn btn-primary" onclick="gymModule.stopRestTimer()">SKIP REST</button>
+    </div>
+  </div>
+
+  <!-- Modal: Weight Update -->
+  <div id="weight-update-modal" class="modal-overlay">
+    <div class="modal-card" style="background: linear-gradient(135deg, #ff6b35 0%, #d9480f 100%); color: #fff;">
+      <div class="modal-header" style="border-bottom-color: rgba(255,255,255,0.3);">
+        <div class="modal-title" style="color:#fff;">Weight Update</div>
+        <button class="modal-close-btn" style="background:rgba(255,255,255,0.2); color:#fff;">&times;</button>
+      </div>
+      <form id="save-weight-form">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;" class="mb-3">
+          <div>
+            <label class="form-label" style="color:#fff;">Weight (kg)</label>
+            <input type="number" step="0.1" id="weight-kg-input" class="form-control" placeholder="68.0" required style="background:#fff; color:#000;">
+          </div>
+          <div>
+            <label class="form-label" style="color:#fff;">Date</label>
+            <input type="date" id="weight-date-input" class="form-control" required style="background:#fff; color:#000;">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-secondary" style="background:var(--primary-crimson);">Save Weight Log</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add Goal -->
+  <div id="add-goal-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">Create Training Goal</div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <form id="save-goal-form">
+        <div class="form-group">
+          <label class="form-label">Goal Category</label>
+          <select id="goal-type-input" class="form-control">
+            <option value="Strength">Strength (e.g., Bench Press 1RM)</option>
+            <option value="Weight">Target Body Weight</option>
+            <option value="Skill">Skill Mastery</option>
+            <option value="Endurance">Endurance & Cardio</option>
+            <option value="Flexibility">Flexibility</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Goal Description *</label>
+          <input type="text" id="goal-desc-input" class="form-control" placeholder="e.g. Bench Press 150 lbs" required>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;" class="mb-2">
+          <div>
+            <label class="form-label">Metric</label>
+            <input type="text" id="goal-metric-input" class="form-control" placeholder="lbs / kg">
+          </div>
+          <div>
+            <label class="form-label">Start</label>
+            <input type="number" id="goal-start-input" class="form-control" placeholder="0">
+          </div>
+          <div>
+            <label class="form-label">Target *</label>
+            <input type="number" id="goal-target-input" class="form-control" placeholder="100" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Target Date</label>
+          <input type="date" id="goal-date-input" class="form-control">
+        </div>
+        <button type="submit" class="btn btn-primary mt-2">CREATE TARGET GOAL</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add Skill -->
+  <div id="add-skill-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">Log Learned Skill</div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <form id="save-skill-form">
+        <div class="form-group">
+          <label class="form-label">Skill / Drill Name *</label>
+          <input type="text" id="skill-name-input" class="form-control" placeholder="e.g. Diamond Push Ups" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select id="skill-category-input" class="form-control">
+            <option value="Regular Drill">Regular Drill</option>
+            <option value="Contemporary Drill">Contemporary Drill</option>
+            <option value="Gym Program">Gym Program</option>
+            <option value="Choreography">Choreography</option>
+            <option value="Conditioning">Conditioning</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Proficiency Level</label>
+          <select id="skill-level-input" class="form-control">
+            <option value="Learning">Learning</option>
+            <option value="Beginner">Beginner</option>
+            <option value="Intermediate">Intermediate</option>
+            <option value="Advanced">Advanced</option>
+            <option value="Mastered">Mastered ⭐</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Evaluating Coach</label>
+          <input type="text" id="skill-coach-input" class="form-control" placeholder="e.g. Coach Santos">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notes</label>
+          <textarea id="skill-notes-input" class="form-control" rows="2"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary mt-2">SAVE SKILL LOG</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: View Workout Details -->
+  <div id="view-workout-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">Workout Session Details</div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <div id="workout-detail-content"></div>
+    </div>
+  </div>
+
+  <!-- Modal: Progress Report Preview -->
+  <div id="progress-report-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width:420px;">
+      <div class="modal-header">
+        <div class="modal-title">Athletic Progress Report</div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+
+      <div class="form-group mb-2">
+        <label class="form-label">Select Report Period:</label>
+        <select id="report-period-select" class="form-control">
+          <option value="7">Last 7 Days (Weekly)</option>
+          <option value="30" selected>Last 30 Days (Monthly)</option>
+          <option value="90">Last 90 Days (Quarterly)</option>
+        </select>
+      </div>
+
+      <div id="report-summary-content" class="mb-3">
+        <!-- Generated by Reports Module -->
+      </div>
+
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary" onclick="reportsModule.downloadPDF()" style="font-size:0.8rem;">
+          <i data-lucide="printer"></i> PRINT / SAVE PDF
+        </button>
+        <button class="btn btn-outline" onclick="reportsModule.exportCSV()" style="font-size:0.8rem;">
+          <i data-lucide="download"></i> EXPORT CSV
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Google Sheets API Config -->
+  <div id="sheets-config-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">Google Sheets Backend API</div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <p style="font-size:0.75rem; color:var(--text-muted); margin-bottom:12px;">
+        Connect your deployed Apps Script Web App URL to sync all athlete workouts, weights, goals, and skills directly into <strong>IYDV_OneUp_Member_Database.xlsx</strong>!
+      </p>
+
+      <div class="form-group">
+        <label class="form-label">Apps Script Web App URL</label>
+        <input type="url" id="sheets-url-input" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
+      </div>
+
+      <div class="d-flex gap-2 mb-3">
+        <button id="save-script-url-btn" class="btn btn-primary btn-sm">Save Endpoint URL</button>
+        <button onclick="dashboardModule.testSheetsConnection()" class="btn btn-outline btn-sm">Test API</button>
+      </div>
+
+      <div style="background:#f8f9fa; border:1px solid #e5e7eb; border-radius:8px; padding:10px; font-size:0.72rem; max-height:150px; overflow-y:auto;">
+        <strong>How to Setup:</strong><br>
+        1. Open your Google Drive and upload <code>IYDV_OneUp_Member_Database.xlsx</code>.<br>
+        2. Open it in Google Sheets &rarr; Extensions &rarr; Apps Script.<br>
+        3. Copy the Apps Script code from the Excel "Apps Script (API)" tab.<br>
+        4. Click Deploy &rarr; New deployment &rarr; Web app (Execute as: Me, Access: Anyone).<br>
+        5. Paste the deployment URL above.
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Privacy Notice -->
+  <div id="privacy-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">Data Privacy Notice</div>
+        <button class="modal-close-btn">&times;</button>
+      </div>
+      <p style="font-size:0.78rem; color:var(--text-main); line-height:1.5;">
+        In compliance with the <strong>Data Privacy Act of 2012 (RA 10173)</strong> of the Philippines, the BatState-U Indak Yaman Dance Varsity collects physical stats (weight, height, BMI) and athletic logs solely for varsity strength & conditioning tracking and coach evaluations. Your records are protected and stored in accordance with university athletic data privacy guidelines.
+      </p>
+    </div>
+  </div>
+
+  <!-- JavaScript Application Modules -->
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/gym.js"></script>
+  <script src="js/weight.js"></script>
+  <script src="js/jogging.js"></script>
+  <script src="js/drills.js"></script>
+  <script src="js/goals.js"></script>
+  <script src="js/skills.js"></script>
+  <script src="js/reports.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

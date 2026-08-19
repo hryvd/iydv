@@ -1,0 +1,327 @@
+/* ==========================================================================
+   IYDV ONEUP - Auth, Profile & Photo Upload Module
+   ========================================================================== */
+
+class AuthModule {
+  constructor() {
+    this.init();
+  }
+
+  init() {
+    this.bindEvents();
+    this.renderUserProfileCard();
+  }
+
+  bindEvents() {
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('.toggle-password-btn')) {
+        const btn = e.target.closest('.toggle-password-btn');
+        const targetId = btn.dataset.target;
+        const input = document.getElementById(targetId);
+        if (input) {
+          const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+          input.setAttribute('type', type);
+          btn.innerHTML = type === 'password' 
+            ? `<i data-lucide="eye"></i>` 
+            : `<i data-lucide="eye-off"></i>`;
+          if (window.lucide) lucide.createIcons();
+        }
+      }
+
+      if (e.target.closest('.google-signin-btn')) {
+        this.handleGoogleSignIn();
+      }
+
+      if (e.target.closest('.trigger-avatar-upload')) {
+        const fileInput = document.getElementById('profile-photo-input');
+        if (fileInput) fileInput.click();
+      }
+    });
+
+    // Profile Photo Input Change Listener
+    document.addEventListener('change', (e) => {
+      if (e.target.id === 'profile-photo-input') {
+        this.handlePhotoUpload(e.target);
+      }
+    });
+
+    const createAccForm = document.getElementById('create-account-form');
+    if (createAccForm) {
+      createAccForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.handleRegister();
+      });
+    }
+
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+      loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.handleLogin();
+      });
+    }
+
+    const editStatsForm = document.getElementById('edit-stats-form');
+    if (editStatsForm) {
+      editStatsForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.handleSaveStats();
+      });
+    }
+  }
+
+  renderUserProfileCard() {
+    const user = store.getCurrentUser();
+    if (!user) return;
+
+    // Default or Custom Avatar
+    const avatarSrc = user.Avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.Username}`;
+
+    // Attendance Status Today
+    const todayStr = new Date().toISOString().split('T')[0];
+    const attendanceLogs = store.getAttendanceLogs();
+    const userAttToday = attendanceLogs.find(a => a.MemberID === user.MemberID && a.Date === todayStr);
+
+    // Top Attendance Banner Element
+    const topAttBanner = document.getElementById('top-attendance-banner');
+    if (topAttBanner) {
+      if (!userAttToday) {
+        topAttBanner.innerHTML = `
+          <button class="btn btn-primary top-attendance-btn" onclick="authModule.handleAttendanceCheckin()">
+            <i data-lucide="map-pin"></i> MARK ATTENDANCE PRESENT
+          </button>
+        `;
+      } else if (userAttToday.Status === 'Approved') {
+        topAttBanner.innerHTML = `
+          <div class="top-attendance-status status-approved">
+            <i data-lucide="check-circle-2"></i> ATTENDANCE VERIFIED PRESENT TODAY (${userAttToday.Time})
+          </div>
+        `;
+      } else {
+        topAttBanner.innerHTML = `
+          <div class="top-attendance-status status-pending">
+            <i data-lucide="clock"></i> ATTENDANCE SUBMITTED (PENDING COACH APPROVAL)
+          </div>
+        `;
+      }
+    }
+
+    // Render Profile Header Card with Spacing Improvements
+    const profileCardEl = document.getElementById('user-profile-card');
+    if (profileCardEl) {
+      store.calculateBMI(user);
+
+      profileCardEl.innerHTML = `
+        <div class="profile-card-content">
+          <div class="profile-avatar-wrapper trigger-avatar-upload" title="Click to upload profile photo">
+            <img src="${avatarSrc}" alt="${user.FullName}" class="profile-avatar" />
+            <div class="avatar-camera-badge">
+              <i data-lucide="camera" style="width: 12px; height: 12px; stroke-width: 2.5;"></i>
+            </div>
+            <span class="rank-badge">${user.Rank || 'ROOKIE'}</span>
+          </div>
+
+          <div class="profile-details-block">
+            <h2 class="profile-name-text">${user.FullName}</h2>
+            <div class="profile-sub-text">Athlete ID: <strong>${user.MemberID}</strong> • ${user.ProgramFocus || 'Whole Body'}</div>
+            
+            <div class="profile-actions-row">
+              <button class="edit-stats-pill-btn" onclick="app.openModal('edit-stats-modal')">
+                <i data-lucide="pencil" style="width: 11px; height: 11px;"></i> Edit Stats
+              </button>
+              <button class="trigger-avatar-upload upload-photo-pill-btn">
+                <i data-lucide="upload" style="width: 11px; height: 11px;"></i> Change Photo
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Render Stat Box Displays
+    const weightValEl = document.getElementById('user-weight-display');
+    const heightValEl = document.getElementById('user-height-display');
+    const bmiValEl = document.getElementById('user-bmi-display');
+    const bmiCatEl = document.getElementById('user-bmi-category');
+
+    if (weightValEl) weightValEl.textContent = `${user.WeightKg || 0} kg`;
+    if (heightValEl) heightValEl.textContent = `${user.HeightCm || 0} cm`;
+    if (bmiValEl) bmiValEl.textContent = user.BMI || '--';
+    if (bmiCatEl) bmiCatEl.textContent = user.BMICategory || 'Normal';
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  handlePhotoUpload(inputEl) {
+    if (!inputEl.files || !inputEl.files[0]) return;
+    const file = inputEl.files[0];
+
+    // Validate size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Photo file is too large. Please select an image under 5MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64Image = e.target.result;
+      const user = store.getCurrentUser();
+      if (user) {
+        user.Avatar = base64Image;
+        store.saveMember(user);
+        this.renderUserProfileCard();
+        alert('📷 Profile photo updated successfully!');
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  handleAttendanceCheckin() {
+    const user = store.getCurrentUser();
+    if (!user) return;
+
+    const log = store.addAttendanceLog(user.MemberID);
+    this.renderUserProfileCard();
+
+    alert(`📍 Attendance Check-In Recorded! Notification sent to Google Sheets for Coach approval.`);
+  }
+
+  handleGoogleSignIn() {
+    const mockGoogleUser = { name: 'Dimaano, Harry V.', email: 'harry.dimaano@g.batstate-u.edu.ph' };
+    const member = store.loginWithGoogle(mockGoogleUser);
+    this.renderUserProfileCard();
+
+    alert(`Google Authentication Successful!\nSigned in as: ${member.FullName}`);
+    app.switchScreen('home-screen');
+  }
+
+  handleRegister() {
+    const username = document.getElementById('reg-username').value.trim();
+    const fullName = document.getElementById('reg-fullname').value.trim();
+    const rank = document.getElementById('reg-rank').value;
+    const email = document.getElementById('reg-email').value.trim();
+    const contact = document.getElementById('reg-contact').value.trim();
+    const password = document.getElementById('reg-password').value;
+    const confirmPassword = document.getElementById('reg-confirm-password').value;
+    const privacyConsent = document.getElementById('reg-privacy-consent').checked;
+
+    if (!username || !fullName || !rank || !password) {
+      alert('Please fill in all required fields.');
+      return;
+    }
+
+    if (password.length < 6) {
+      alert('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      alert('Passwords do not match.');
+      return;
+    }
+
+    if (!privacyConsent) {
+      alert('Please accept the Data Privacy notice to create an account.');
+      return;
+    }
+
+    const members = store.getMembers();
+    const existing = members.find(m => m.Username.toLowerCase() === username.toLowerCase());
+    if (existing) {
+      alert('Username already exists. Please choose another.');
+      return;
+    }
+
+    const newMember = {
+      MemberID: 'M' + String(members.length + 1).padStart(3, '0'),
+      Username: username,
+      FullName: fullName,
+      Rank: rank,
+      ProgramFocus: 'Whole Body',
+      Email: email || `${username}@batstate-u.edu.ph`,
+      ContactNumber: contact || 'N/A',
+      DateJoined: new Date().toISOString().split('T')[0],
+      WeightKg: 65.0,
+      HeightCm: 170,
+      BMI: 22.5,
+      BMICategory: 'Normal',
+      Status: 'Active',
+      Notes: 'Newly registered athlete',
+      Password: password,
+      Avatar: ''
+    };
+
+    store.saveMember(newMember);
+    store.setCurrentUser(newMember);
+    this.renderUserProfileCard();
+
+    alert(`Account created successfully! Welcome to IYDV ONEUP, ${fullName}.`);
+    app.switchScreen('home-screen');
+  }
+
+  handleLogin() {
+    const userOrEmail = document.getElementById('login-username').value.trim().toLowerCase();
+    const password = document.getElementById('login-password').value;
+
+    const members = store.getMembers();
+    const found = members.find(m => 
+      m.Username.toLowerCase() === userOrEmail || 
+      (m.Email && m.Email.toLowerCase() === userOrEmail)
+    );
+
+    if (!found) {
+      alert('Member account not found. Please check your credentials or create a new account.');
+      return;
+    }
+
+    if (found.Password && found.Password !== password) {
+      alert('Incorrect password. Please try again.');
+      return;
+    }
+
+    store.setCurrentUser(found);
+    this.renderUserProfileCard();
+    alert(`Welcome back, ${found.FullName}!`);
+    app.switchScreen('home-screen');
+  }
+
+  handleSaveStats() {
+    const user = store.getCurrentUser();
+    if (!user) return;
+
+    const newWeight = parseFloat(document.getElementById('edit-weight-input').value);
+    const newHeight = parseFloat(document.getElementById('edit-height-input').value);
+    const newProgram = document.getElementById('edit-program-input').value;
+
+    if (isNaN(newWeight) || newWeight <= 0) {
+      alert('Please enter a valid weight in kg.');
+      return;
+    }
+
+    if (isNaN(newHeight) || newHeight <= 0) {
+      alert('Please enter a valid height in cm.');
+      return;
+    }
+
+    user.WeightKg = newWeight;
+    user.HeightCm = newHeight;
+    user.ProgramFocus = newProgram;
+    store.calculateBMI(user);
+
+    store.saveMember(user);
+    store.addWeightLog(user.MemberID, newWeight, new Date().toISOString().split('T')[0]);
+
+    this.renderUserProfileCard();
+    app.closeModal('edit-stats-modal');
+
+    if (window.weightModule) weightModule.renderWeightChart();
+  }
+
+  logout() {
+    if (confirm('Are you sure you want to sign out?')) {
+      app.switchScreen('welcome-screen');
+    }
+  }
+}
+
+const authModule = new AuthModule();

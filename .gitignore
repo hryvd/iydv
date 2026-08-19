@@ -1,0 +1,7 @@
+# Dump files
+doc_dump.txt
+xlsx_dump.txt
+
+# OS generated files
+.DS_Store
+Thumbs.db
