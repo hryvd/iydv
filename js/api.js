@@ -1,5 +1,5 @@
 /* ==========================================================================
-   IYDV ONEUP - API & Persistence Layer (Data Store & Sync Manager)
+   IYDV ONEUP - API & Persistence Layer (Data Store & Google Sheets Sync)
    ========================================================================== */
 
 const STORAGE_KEYS = {
@@ -14,8 +14,8 @@ const STORAGE_KEYS = {
   APPS_SCRIPT_URL: 'iydv_apps_script_url'
 };
 
-// Complete Master Drills & Exercise Reference (Includes all user Contemporary Drills!)
-const INITIAL_DRILLS_REF = [
+// Reference data only — drill & exercise catalog (not user data)
+const DRILLS_REFERENCE = [
   // Regular Drills
   { Category: 'Regular Drill', Name: 'Diamond Push Ups', Type: 'Conditioning' },
   { Category: 'Regular Drill', Name: 'Normal Push Ups', Type: 'Conditioning' },
@@ -27,7 +27,7 @@ const INITIAL_DRILLS_REF = [
   { Category: 'Regular Drill', Name: 'Crunches', Type: 'Conditioning' },
   { Category: 'Regular Drill', Name: 'Hollow Body Hold', Type: 'Conditioning' },
 
-  // Contemporary Drills (Exact list from user original app screens!)
+  // Contemporary Drills
   { Category: 'Contemporary Drill', Name: 'WALK TIPTOE', Type: 'Dance Conditioning' },
   { Category: 'Contemporary Drill', Name: 'SIDE TIPTOE', Type: 'Dance Conditioning' },
   { Category: 'Contemporary Drill', Name: 'OPEN CLOSE CIRCULAR', Type: 'Dance Conditioning' },
@@ -47,6 +47,11 @@ const INITIAL_DRILLS_REF = [
   { Category: 'Gym - Pull', Name: 'Pull Up', Type: 'Strength' },
   { Category: 'Gym - Pull', Name: 'Side Arm DB Row', Type: 'Strength' },
   { Category: 'Gym - Legs', Name: 'Goblet Squat', Type: 'Strength' },
+  { Category: 'Gym - Legs', Name: 'Leg Press', Type: 'Strength' },
+  { Category: 'Gym - Legs', Name: 'Lunges', Type: 'Strength' },
+  { Category: 'Gym - Back', Name: 'Deadlift', Type: 'Strength' },
+  { Category: 'Gym - Back', Name: 'Barbell Row', Type: 'Strength' },
+  { Category: 'Gym - Back', Name: 'Lat Pulldown', Type: 'Strength' },
   { Category: 'Gym - Whole Body', Name: 'Bench Press', Type: 'Strength' },
   { Category: 'Gym - Whole Body', Name: 'Close-Grip BB Incline Press', Type: 'Strength' },
   { Category: 'Gym - Whole Body', Name: 'Pull Up', Type: 'Strength' },
@@ -55,40 +60,15 @@ const INITIAL_DRILLS_REF = [
   { Category: 'Gym - Whole Body', Name: 'Diamond Push Up', Type: 'Strength' }
 ];
 
-// Initial Seed Members
-const INITIAL_MEMBERS = [
-  {
-    MemberID: 'M001',
-    Username: 'hdimaano',
-    FullName: 'Dimaano, Harry V.',
-    Rank: 'Rookie',
-    ProgramFocus: 'Whole Body',
-    Email: 'harry.dimaano@g.batstate-u.edu.ph',
-    ContactNumber: '0917 000 0000',
-    DateJoined: '2025-06-01',
-    WeightKg: 68,
-    HeightCm: 172,
-    BMI: 23.0,
-    BMICategory: 'Normal',
-    Status: 'Active',
-    Notes: 'Initial varsity athlete record',
-    Avatar: ''
-  }
-];
-
-// Initial Attendance Records
-const INITIAL_ATTENDANCE = [
-  { LogID: 'A001', Date: '2026-08-19', MemberID: 'M001', FullName: 'Dimaano, Harry V.', Time: '08:30 AM', Status: 'Approved', ApprovedBy: 'Coach Santos' }
-];
-
 class DataStore {
   constructor() {
     this.init();
   }
 
   init() {
+    // Initialize empty arrays for user data if not present
     if (!localStorage.getItem(STORAGE_KEYS.MEMBERS)) {
-      localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify(INITIAL_MEMBERS));
+      localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.WORKOUT_LOGS)) {
       localStorage.setItem(STORAGE_KEYS.WORKOUT_LOGS, JSON.stringify([]));
@@ -102,16 +82,11 @@ class DataStore {
     if (!localStorage.getItem(STORAGE_KEYS.SKILLS)) {
       localStorage.setItem(STORAGE_KEYS.SKILLS, JSON.stringify([]));
     }
-    // Always refresh DRILLS_REF to ensure new contemporary drills are available
-    localStorage.setItem(STORAGE_KEYS.DRILLS_REF, JSON.stringify(INITIAL_DRILLS_REF));
-
     if (!localStorage.getItem(STORAGE_KEYS.ATTENDANCE)) {
-      localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(INITIAL_ATTENDANCE));
+      localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify([]));
     }
-
-    if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(INITIAL_MEMBERS[0]));
-    }
+    // Always refresh drills reference catalog
+    localStorage.setItem(STORAGE_KEYS.DRILLS_REF, JSON.stringify(DRILLS_REFERENCE));
   }
 
   getItem(key) {
@@ -121,18 +96,19 @@ class DataStore {
 
   setItem(key, data) {
     localStorage.setItem(key, JSON.stringify(data));
-    this.syncToGoogleSheets(key, data);
   }
 
+  // ── Members ──────────────────────────────────────────────
   getMembers() { return this.getItem(STORAGE_KEYS.MEMBERS); }
   getMemberById(id) { return this.getMembers().find(m => m.MemberID === id); }
+
   saveMember(member) {
     const members = this.getMembers();
     const idx = members.findIndex(m => m.MemberID === member.MemberID);
     if (idx >= 0) members[idx] = member;
     else members.push(member);
     this.setItem(STORAGE_KEYS.MEMBERS, members);
-    
+
     const curr = this.getCurrentUser();
     if (curr && curr.MemberID === member.MemberID) {
       localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(member));
@@ -141,14 +117,22 @@ class DataStore {
 
   getCurrentUser() {
     const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    return data ? JSON.parse(data) : INITIAL_MEMBERS[0];
+    if (!data) return null;
+    const user = JSON.parse(data);
+    // Verify the user object has the required fields
+    if (!user || !user.MemberID) return null;
+    return user;
   }
 
   setCurrentUser(member) {
     localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(member));
   }
 
-  // Workouts API
+  clearCurrentUser() {
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+  }
+
+  // ── Workouts ─────────────────────────────────────────────
   getWorkoutLogs(memberId = null) {
     const logs = this.getItem(STORAGE_KEYS.WORKOUT_LOGS);
     if (!memberId) return logs;
@@ -158,8 +142,10 @@ class DataStore {
   addWorkoutLogsBatch(logArray) {
     const logs = this.getWorkoutLogs();
     logArray.forEach(log => {
-      log.LogID = log.LogID || 'L' + String(Date.now() + Math.floor(Math.random()*1000)).slice(-7);
+      log.LogID = log.LogID || 'L' + String(Date.now() + Math.floor(Math.random() * 1000)).slice(-7);
       logs.unshift(log);
+      // Sync each record individually to Google Sheets
+      this.postToSheets('Workout Logs', log);
     });
     this.setItem(STORAGE_KEYS.WORKOUT_LOGS, logs);
     return logArray;
@@ -175,7 +161,7 @@ class DataStore {
     this.setItem(STORAGE_KEYS.WORKOUT_LOGS, logs);
   }
 
-  // Weight API
+  // ── Weight ───────────────────────────────────────────────
   getWeightLogs(memberId = null) {
     const logs = this.getItem(STORAGE_KEYS.WEIGHT_LOGS);
     if (!memberId) return logs;
@@ -184,8 +170,8 @@ class DataStore {
 
   addWeightLog(memberId, weightKg, dateStr) {
     const logs = this.getWeightLogs();
-    const memberLogs = logs.filter(l => l.MemberID === memberId).sort((a,b) => new Date(a.Date) - new Date(b.Date));
-    
+    const memberLogs = logs.filter(l => l.MemberID === memberId).sort((a, b) => new Date(a.Date) - new Date(b.Date));
+
     let lastWeight = memberLogs.length > 0 ? memberLogs[memberLogs.length - 1].WeightKg : weightKg;
     let changeKg = parseFloat((weightKg - lastWeight).toFixed(1));
 
@@ -199,6 +185,7 @@ class DataStore {
 
     logs.unshift(newLog);
     this.setItem(STORAGE_KEYS.WEIGHT_LOGS, logs);
+    this.postToSheets('Weight Logs', newLog);
 
     const member = this.getMemberById(memberId);
     if (member) {
@@ -210,7 +197,7 @@ class DataStore {
     return newLog;
   }
 
-  // Goals API
+  // ── Goals ────────────────────────────────────────────────
   getGoals(memberId = null) {
     const goals = this.getItem(STORAGE_KEYS.GOALS);
     if (!memberId) return goals;
@@ -224,10 +211,11 @@ class DataStore {
     if (idx >= 0) goals[idx] = goal;
     else goals.push(goal);
     this.setItem(STORAGE_KEYS.GOALS, goals);
+    this.postToSheets('Goals', goal);
     return goal;
   }
 
-  // Skills API
+  // ── Skills ───────────────────────────────────────────────
   getSkills(memberId = null) {
     const skills = this.getItem(STORAGE_KEYS.SKILLS);
     if (!memberId) return skills;
@@ -241,10 +229,11 @@ class DataStore {
     if (idx >= 0) skills[idx] = skill;
     else skills.push(skill);
     this.setItem(STORAGE_KEYS.SKILLS, skills);
+    this.postToSheets('Skills Learned', skill);
     return skill;
   }
 
-  // Attendance API
+  // ── Attendance ───────────────────────────────────────────
   getAttendanceLogs() {
     return this.getItem(STORAGE_KEYS.ATTENDANCE);
   }
@@ -257,7 +246,6 @@ class DataStore {
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const logs = this.getAttendanceLogs();
 
-    // Check if already checked in today
     const existing = logs.find(l => l.MemberID === memberId && l.Date === todayStr);
     if (existing) return existing;
 
@@ -273,6 +261,7 @@ class DataStore {
 
     logs.unshift(newLog);
     this.setItem(STORAGE_KEYS.ATTENDANCE, logs);
+    this.postToSheets('Attendance Logs', newLog);
     return newLog;
   }
 
@@ -283,6 +272,7 @@ class DataStore {
       logs[idx].Status = 'Approved';
       logs[idx].ApprovedBy = coachName;
       this.setItem(STORAGE_KEYS.ATTENDANCE, logs);
+      this.postToSheets('Attendance Logs', logs[idx]);
     }
   }
 
@@ -305,36 +295,38 @@ class DataStore {
     }
   }
 
-  // Google Sign-In helper
+  // ── Google Sign-In ───────────────────────────────────────
   loginWithGoogle(googleUserData) {
     const members = this.getMembers();
-    let member = members.find(m => m.Email.toLowerCase() === googleUserData.email.toLowerCase());
+    let member = members.find(m => m.Email && m.Email.toLowerCase() === googleUserData.email.toLowerCase());
 
     if (!member) {
-      // Auto-register Google user
       member = {
         MemberID: 'M' + String(members.length + 1).padStart(3, '0'),
         Username: googleUserData.email.split('@')[0],
-        FullName: googleUserData.name || 'Google Varsity Athlete',
+        FullName: googleUserData.name || 'Varsity Athlete',
         Rank: 'Rookie',
         ProgramFocus: 'Whole Body',
         Email: googleUserData.email,
-        ContactNumber: 'Google Verified',
+        ContactNumber: 'N/A',
         DateJoined: new Date().toISOString().split('T')[0],
-        WeightKg: 65.0,
-        HeightCm: 170,
-        BMI: 22.5,
-        BMICategory: 'Normal',
+        WeightKg: 0,
+        HeightCm: 0,
+        BMI: 0,
+        BMICategory: '--',
         Status: 'Active',
-        Notes: 'Signed in via Google Account'
+        Notes: 'Signed in via Google Account',
+        Avatar: ''
       };
       this.saveMember(member);
+      this.postToSheets('Members', member);
     }
 
     this.setCurrentUser(member);
     return member;
   }
 
+  // ── Google Sheets API ────────────────────────────────────
   getAppsScriptUrl() {
     return localStorage.getItem(STORAGE_KEYS.APPS_SCRIPT_URL) || '';
   }
@@ -343,32 +335,47 @@ class DataStore {
     localStorage.setItem(STORAGE_KEYS.APPS_SCRIPT_URL, url.trim());
   }
 
-  async syncToGoogleSheets(key, data) {
+  /**
+   * POST a single record to Google Sheets via Apps Script doPost.
+   * Apps Script returns JSON with CORS headers, so we use default mode.
+   */
+  async postToSheets(sheetName, record) {
     const url = this.getAppsScriptUrl();
-    if (!url) return;
-
-    let sheetName = '';
-    if (key === STORAGE_KEYS.WORKOUT_LOGS) sheetName = 'Workout Logs';
-    else if (key === STORAGE_KEYS.WEIGHT_LOGS) sheetName = 'Weight Logs';
-    else if (key === STORAGE_KEYS.GOALS) sheetName = 'Goals';
-    else if (key === STORAGE_KEYS.SKILLS) sheetName = 'Skills Learned';
-    else if (key === STORAGE_KEYS.MEMBERS) sheetName = 'Members';
-    else if (key === STORAGE_KEYS.ATTENDANCE) sheetName = 'Attendance Logs';
-
-    if (!sheetName) return;
+    if (!url) return null;
 
     try {
-      const lastItem = Array.isArray(data) ? data[0] : data;
-      if (lastItem) {
-        await fetch(url, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sheet: sheetName, record: lastItem })
-        });
-      }
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ sheet: sheetName, record: record })
+      });
+      const data = await res.json();
+      console.log(`[Sheets POST] ${sheetName}:`, data);
+      return data;
     } catch (err) {
-      console.warn('Google Sheets sync notice:', err.message);
+      console.warn(`[Sheets POST] ${sheetName} sync error:`, err.message);
+      return null;
+    }
+  }
+
+  /**
+   * GET records from Google Sheets via Apps Script doGet.
+   * @param {string} sheetName - e.g. 'Members', 'Workout Logs'
+   * @param {Object} filters - e.g. { MemberID: 'M001' }
+   */
+  async fetchFromSheets(sheetName, filters = {}) {
+    const url = this.getAppsScriptUrl();
+    if (!url) return null;
+
+    try {
+      const params = new URLSearchParams({ sheet: sheetName, ...filters });
+      const res = await fetch(`${url}?${params.toString()}`);
+      const data = await res.json();
+      console.log(`[Sheets GET] ${sheetName}:`, data);
+      return data;
+    } catch (err) {
+      console.warn(`[Sheets GET] ${sheetName} fetch error:`, err.message);
+      return null;
     }
   }
 }

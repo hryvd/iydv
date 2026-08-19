@@ -21,12 +21,9 @@ class DashboardModule {
   renderTeamDashboard() {
     const members = store.getMembers();
     const workouts = store.getWorkoutLogs();
-    const weights = store.getWeightLogs();
     const goals = store.getGoals();
-    const skills = store.getSkills();
     const attendance = store.getAttendanceLogs();
 
-    // Compute Metrics matching Sheet Dashboard Tab
     const totalMembers = members.length;
     const activeMembers = members.filter(m => m.Status === 'Active').length;
     const totalSets = workouts.length;
@@ -34,11 +31,10 @@ class DashboardModule {
     const goalsAchieved = goals.filter(g => g.Status === 'Achieved' || g.ProgressPct >= 100).length;
     const goalRate = totalGoals > 0 ? Math.round((goalsAchieved / totalGoals) * 100) : 0;
 
-    const avgBmi = members.length > 0 
-      ? (members.reduce((sum, m) => sum + (m.BMI || 22), 0) / members.length).toFixed(1) 
-      : 23.0;
+    const avgBmi = members.length > 0
+      ? (members.reduce((sum, m) => sum + (m.BMI || 0), 0) / members.length).toFixed(1)
+      : '--';
 
-    // Render Metrics Boxes
     const metricsContainer = document.getElementById('team-metrics-grid');
     if (metricsContainer) {
       metricsContainer.innerHTML = `
@@ -60,28 +56,30 @@ class DashboardModule {
         <div class="stat-box" style="background:#fff; border:1px solid #e5e7eb;">
           <div class="label" style="color:var(--text-muted);">Team Avg BMI</div>
           <div class="value" style="color:var(--accent-orange);">${avgBmi}</div>
-          <div class="sub-value">Normal category</div>
+          <div class="sub-value">${avgBmi !== '--' ? 'Computed' : 'No data'}</div>
         </div>
       `;
     }
 
-    // Render Attendance Approvals Section
     this.renderAttendanceApprovals();
 
-    // Render Member Roster Table
     const rosterContainer = document.getElementById('team-roster-list');
     if (rosterContainer) {
-      rosterContainer.innerHTML = members.map(m => `
-        <div class="list-item">
-          <div>
-            <div class="list-title">${m.FullName} <small style="color:var(--text-muted);">(${m.MemberID})</small></div>
-            <div class="list-subtitle">${m.Rank} • ${m.ProgramFocus} • ${m.WeightKg}kg / ${m.HeightCm}cm (BMI ${m.BMI})</div>
+      if (members.length === 0) {
+        rosterContainer.innerHTML = `<div style="font-size:0.75rem; color:var(--text-muted); text-align:center; padding:8px;">No members registered yet.</div>`;
+      } else {
+        rosterContainer.innerHTML = members.map(m => `
+          <div class="list-item">
+            <div>
+              <div class="list-title">${m.FullName} <small style="color:var(--text-muted);">(${m.MemberID})</small></div>
+              <div class="list-subtitle">${m.Rank} • ${m.ProgramFocus} • ${m.WeightKg || '--'}kg / ${m.HeightCm || '--'}cm${m.BMI ? ` (BMI ${m.BMI})` : ''}</div>
+            </div>
+            <div>
+              <span class="badge ${m.Status === 'Active' ? 'badge-success' : 'badge-warning'}">${m.Status}</span>
+            </div>
           </div>
-          <div>
-            <span class="badge ${m.Status === 'Active' ? 'badge-success' : 'badge-warning'}">${m.Status}</span>
-          </div>
-        </div>
-      `).join('');
+        `).join('');
+      }
     }
   }
 
@@ -120,8 +118,6 @@ class DashboardModule {
   approveCheckin(logId) {
     store.approveAttendance(logId, 'Coach Santos');
     this.renderAttendanceApprovals();
-    
-    // Refresh user profile if current user
     authModule.renderUserProfileCard();
 
     alert('✅ Attendance Check-In Approved! Recorded in Sheets.');
@@ -136,8 +132,12 @@ class DashboardModule {
 
   handleSaveScriptUrl() {
     const url = document.getElementById('sheets-url-input').value.trim();
+    if (!url) {
+      alert('Please enter a valid Apps Script Web App URL.');
+      return;
+    }
     store.setAppsScriptUrl(url);
-    alert('Google Apps Script Web App URL updated successfully! Live sync enabled.');
+    alert('✅ Google Apps Script Web App URL saved! Live sync is now enabled.');
     app.closeModal('sheets-config-modal');
   }
 
@@ -151,12 +151,19 @@ class DashboardModule {
     try {
       const res = await fetch(`${url}?sheet=Members`);
       if (res.ok) {
-        alert('✅ Connection Successful! Google Sheets API is responding cleanly.');
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          alert(`✅ Connection Successful!\nGoogle Sheets API returned ${data.length} member record(s).`);
+        } else if (data.error) {
+          alert(`⚠️ Sheets API responded with error: ${data.error}`);
+        } else {
+          alert(`✅ Connection Successful! Response received from Sheets API.`);
+        }
       } else {
         alert('⚠️ Endpoint returned non-200 status. Check deployment permissions.');
       }
     } catch (e) {
-      alert(`⚠️ Connection Notice: CORS or endpoint check result. Code: ${e.message}`);
+      alert(`⚠️ Connection error: ${e.message}\nMake sure the Apps Script is deployed as "Anyone" can access.`);
     }
   }
 }

@@ -9,7 +9,6 @@ class AuthModule {
 
   init() {
     this.bindEvents();
-    this.renderUserProfileCard();
   }
 
   bindEvents() {
@@ -21,8 +20,8 @@ class AuthModule {
         if (input) {
           const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
           input.setAttribute('type', type);
-          btn.innerHTML = type === 'password' 
-            ? `<i data-lucide="eye"></i>` 
+          btn.innerHTML = type === 'password'
+            ? `<i data-lucide="eye"></i>`
             : `<i data-lucide="eye-off"></i>`;
           if (window.lucide) lucide.createIcons();
         }
@@ -38,7 +37,6 @@ class AuthModule {
       }
     });
 
-    // Profile Photo Input Change Listener
     document.addEventListener('change', (e) => {
       if (e.target.id === 'profile-photo-input') {
         this.handlePhotoUpload(e.target);
@@ -74,7 +72,6 @@ class AuthModule {
     const user = store.getCurrentUser();
     if (!user) return;
 
-    // Default or Custom Avatar
     const avatarSrc = user.Avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.Username}`;
 
     // Attendance Status Today
@@ -82,7 +79,6 @@ class AuthModule {
     const attendanceLogs = store.getAttendanceLogs();
     const userAttToday = attendanceLogs.find(a => a.MemberID === user.MemberID && a.Date === todayStr);
 
-    // Top Attendance Banner Element
     const topAttBanner = document.getElementById('top-attendance-banner');
     if (topAttBanner) {
       if (!userAttToday) {
@@ -106,7 +102,6 @@ class AuthModule {
       }
     }
 
-    // Render Profile Header Card with Spacing Improvements
     const profileCardEl = document.getElementById('user-profile-card');
     if (profileCardEl) {
       store.calculateBMI(user);
@@ -124,7 +119,7 @@ class AuthModule {
           <div class="profile-details-block">
             <h2 class="profile-name-text">${user.FullName}</h2>
             <div class="profile-sub-text">Athlete ID: <strong>${user.MemberID}</strong> • ${user.ProgramFocus || 'Whole Body'}</div>
-            
+
             <div class="profile-actions-row">
               <button class="edit-stats-pill-btn" onclick="app.openModal('edit-stats-modal')">
                 <i data-lucide="pencil" style="width: 11px; height: 11px;"></i> Edit Stats
@@ -138,16 +133,15 @@ class AuthModule {
       `;
     }
 
-    // Render Stat Box Displays
     const weightValEl = document.getElementById('user-weight-display');
     const heightValEl = document.getElementById('user-height-display');
     const bmiValEl = document.getElementById('user-bmi-display');
     const bmiCatEl = document.getElementById('user-bmi-category');
 
-    if (weightValEl) weightValEl.textContent = `${user.WeightKg || 0} kg`;
-    if (heightValEl) heightValEl.textContent = `${user.HeightCm || 0} cm`;
+    if (weightValEl) weightValEl.textContent = user.WeightKg ? `${user.WeightKg} kg` : '-- kg';
+    if (heightValEl) heightValEl.textContent = user.HeightCm ? `${user.HeightCm} cm` : '-- cm';
     if (bmiValEl) bmiValEl.textContent = user.BMI || '--';
-    if (bmiCatEl) bmiCatEl.textContent = user.BMICategory || 'Normal';
+    if (bmiCatEl) bmiCatEl.textContent = user.BMICategory || '--';
 
     if (window.lucide) lucide.createIcons();
   }
@@ -156,7 +150,6 @@ class AuthModule {
     if (!inputEl.files || !inputEl.files[0]) return;
     const file = inputEl.files[0];
 
-    // Validate size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert('Photo file is too large. Please select an image under 5MB.');
       return;
@@ -180,15 +173,21 @@ class AuthModule {
     const user = store.getCurrentUser();
     if (!user) return;
 
-    const log = store.addAttendanceLog(user.MemberID);
+    store.addAttendanceLog(user.MemberID);
     this.renderUserProfileCard();
 
-    alert(`📍 Attendance Check-In Recorded! Notification sent to Google Sheets for Coach approval.`);
+    alert('📍 Attendance Check-In Recorded!\nSent to Google Sheets for Coach approval.');
   }
 
   handleGoogleSignIn() {
-    const mockGoogleUser = { name: 'Dimaano, Harry V.', email: 'harry.dimaano@g.batstate-u.edu.ph' };
-    const member = store.loginWithGoogle(mockGoogleUser);
+    // Prompt for Google account details (simulated OAuth)
+    const name = prompt('Enter your full name (Last, First M.):');
+    if (!name || !name.trim()) return;
+
+    const email = prompt('Enter your institutional email:');
+    if (!email || !email.trim()) return;
+
+    const member = store.loginWithGoogle({ name: name.trim(), email: email.trim() });
     this.renderUserProfileCard();
 
     alert(`Google Authentication Successful!\nSigned in as: ${member.FullName}`);
@@ -241,10 +240,10 @@ class AuthModule {
       Email: email || `${username}@batstate-u.edu.ph`,
       ContactNumber: contact || 'N/A',
       DateJoined: new Date().toISOString().split('T')[0],
-      WeightKg: 65.0,
-      HeightCm: 170,
-      BMI: 22.5,
-      BMICategory: 'Normal',
+      WeightKg: 0,
+      HeightCm: 0,
+      BMI: 0,
+      BMICategory: '--',
       Status: 'Active',
       Notes: 'Newly registered athlete',
       Password: password,
@@ -252,6 +251,7 @@ class AuthModule {
     };
 
     store.saveMember(newMember);
+    store.postToSheets('Members', newMember);
     store.setCurrentUser(newMember);
     this.renderUserProfileCard();
 
@@ -263,9 +263,14 @@ class AuthModule {
     const userOrEmail = document.getElementById('login-username').value.trim().toLowerCase();
     const password = document.getElementById('login-password').value;
 
+    if (!userOrEmail) {
+      alert('Please enter your username or email.');
+      return;
+    }
+
     const members = store.getMembers();
-    const found = members.find(m => 
-      m.Username.toLowerCase() === userOrEmail || 
+    const found = members.find(m =>
+      m.Username.toLowerCase() === userOrEmail ||
       (m.Email && m.Email.toLowerCase() === userOrEmail)
     );
 
@@ -319,6 +324,7 @@ class AuthModule {
 
   logout() {
     if (confirm('Are you sure you want to sign out?')) {
+      store.clearCurrentUser();
       app.switchScreen('welcome-screen');
     }
   }

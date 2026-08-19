@@ -4,7 +4,7 @@
 
 class App {
   constructor() {
-    this.currentScreen = 'home-screen';
+    this.currentScreen = 'welcome-screen';
     this.init();
   }
 
@@ -14,9 +14,9 @@ class App {
       this.bindModals();
       this.refreshIcons();
 
-      // Check if user is logged in
+      // Always check for existing session — if none, show welcome screen
       const user = store.getCurrentUser();
-      if (user) {
+      if (user && user.MemberID) {
         this.switchScreen('home-screen');
         authModule.renderUserProfileCard();
       } else {
@@ -27,18 +27,16 @@ class App {
 
   bindNavigation() {
     document.addEventListener('click', (e) => {
-      // Bottom Nav Items
       if (e.target.closest('.nav-item')) {
         const item = e.target.closest('.nav-item');
         const targetScreen = item.dataset.screen;
-        
+
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         item.classList.add('active');
 
         this.switchScreen(targetScreen);
       }
 
-      // Action Tiles Navigation
       if (e.target.closest('.action-tile')) {
         const tile = e.target.closest('.action-tile');
         const targetScreen = tile.dataset.screen;
@@ -50,7 +48,6 @@ class App {
   }
 
   bindModals() {
-    // Modal Overlay click to close
     document.addEventListener('click', (e) => {
       if (e.target.classList.contains('modal-overlay')) {
         e.target.classList.remove('active');
@@ -70,7 +67,7 @@ class App {
       this.currentScreen = screenId;
     }
 
-    // Trigger Screen Specific Renders
+    // Trigger screen-specific renders
     if (screenId === 'home-screen') {
       authModule.renderUserProfileCard();
       this.renderPreviousWorkoutsList();
@@ -79,6 +76,8 @@ class App {
     } else if (screenId === 'weight-screen') {
       weightModule.renderWeightLogsHistory();
       weightModule.renderWeightChart();
+    } else if (screenId === 'drills-screen') {
+      drillsModule.renderDrills();
     } else if (screenId === 'goals-screen') {
       goalsModule.renderGoals();
     } else if (screenId === 'skills-screen') {
@@ -113,22 +112,25 @@ class App {
     }
   }
 
-  // Tappable Previous Workouts List (Audit 2.2 #2 Fix)
   renderPreviousWorkoutsList() {
     const container = document.getElementById('previous-workouts-container');
     if (!container) return;
 
     const user = store.getCurrentUser();
+    if (!user) {
+      container.innerHTML = `<div class="text-center" style="font-size:0.75rem; color:var(--text-muted); padding:10px;">Sign in to view your workout history.</div>`;
+      return;
+    }
+
     const logs = store.getWorkoutLogs(user.MemberID);
 
-    // Group logs by Date
     const grouped = {};
     logs.forEach(l => {
       if (!grouped[l.Date]) grouped[l.Date] = [];
       grouped[l.Date].push(l);
     });
 
-    const dates = Object.keys(grouped).sort((a,b) => new Date(b) - new Date(a)).slice(0, 4);
+    const dates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a)).slice(0, 4);
 
     if (dates.length === 0) {
       container.innerHTML = `<div class="text-center" style="font-size:0.75rem; color:var(--text-muted); padding:10px;">No previous workout sessions found.</div>`;
@@ -158,6 +160,8 @@ class App {
 
   viewWorkoutDetails(dateStr) {
     const user = store.getCurrentUser();
+    if (!user) return;
+
     const logs = store.getWorkoutLogs(user.MemberID).filter(l => l.Date === dateStr);
 
     const detailContainer = document.getElementById('workout-detail-content');
@@ -167,7 +171,7 @@ class App {
         ${logs.map(l => `
           <div style="background:#f8f9fa; border-left:3px solid var(--accent-orange); padding:8px; border-radius:6px; margin-bottom:6px; font-size:0.78rem;">
             <strong>${l.Exercise}</strong> (Program: ${l.Program})<br>
-            ${l.SetNum ? `Set ${l.SetNum}: ` : ''}${l.Reps} reps @ ${l.WeightLbs} lbs ${l.RPE ? `(RPE ${l.RPE})` : ''}
+            ${l['Set #'] ? `Set ${l['Set #']}: ` : ''}${l.Reps} reps @ ${l['Weight (lbs)'] || l.WeightLbs || 0} lbs ${l['RPE (1-10)'] || l.RPE ? `(RPE ${l['RPE (1-10)'] || l.RPE})` : ''}
             ${l.Notes ? `<br><small style="color:var(--text-muted);">${l.Notes}</small>` : ''}
           </div>
         `).join('')}

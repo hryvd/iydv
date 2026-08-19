@@ -828,3 +828,125 @@ canvas { width: 100% !important; height: 100% !important; }
 }
 
 .welcome-title span { color: var(--primary-crimson); display: block; }
+
+/* ── Active Workout Session Styles ────────────────────── */
+.set-dots-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.set-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 0.82rem;
+  background: rgba(60, 60, 67, 0.08);
+  color: var(--text-muted);
+  border: 2px solid transparent;
+  transition: var(--transition-fast);
+}
+
+.set-dot.active {
+  background: var(--accent-orange);
+  color: #ffffff;
+  border-color: var(--accent-orange);
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4);
+  transform: scale(1.15);
+}
+
+.set-dot.completed {
+  background: var(--color-success);
+  color: #ffffff;
+  border-color: var(--color-success);
+}
+
+.active-set-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  border: 1.5px solid var(--border-color);
+  box-shadow: var(--shadow-apple-sm);
+}
+
+/* Gym Exercise Checkbox States */
+.gym-exercise-checkbox {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  transition: var(--transition-fast);
+}
+
+.gym-exercise-checkbox.locked {
+  background: rgba(60, 60, 67, 0.08);
+  color: var(--text-muted);
+  border: 1.5px solid var(--border-color);
+}
+
+.gym-exercise-checkbox.checked {
+  background: var(--color-success);
+  color: #ffffff;
+  border: 1.5px solid var(--color-success);
+  font-weight: 900;
+}
+
+.gym-exercise-card.exercise-completed {
+  background: rgba(52, 199, 89, 0.06);
+}
+
+/* Drill Completed State */
+.drill-checklist-card.drill-completed {
+  background: linear-gradient(135deg, #1e7e34 0%, #34c759 100%);
+  box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
+}
+
+/* Disabled Button */
+.btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  pointer-events: none;
+}
+
+.list-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.list-subtitle {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.input-with-icon {
+  position: relative;
+}
+
+.input-icon-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.form-control-sm {
+  padding: 8px 10px;
+  font-size: 0.82rem;
+}
+
