@@ -203,6 +203,8 @@ class AuthModule {
 
     alert(`Google Authentication Successful!\nSigned in as: ${member.FullName}`);
     app.switchScreen('home-screen');
+    // Render schedule panel immediately
+    setTimeout(() => { if (window.scheduleModule) scheduleModule.renderAllPanels(); }, 80);
 
     // Background sync
     this._syncFromSheets();
@@ -271,6 +273,8 @@ class AuthModule {
 
     alert(`Account created! Welcome to IYDV ONEUP, ${fullName}.`);
     app.switchScreen('home-screen');
+    // Render schedule panel immediately
+    setTimeout(() => { if (window.scheduleModule) scheduleModule.renderAllPanels(); }, 80);
   }
 
   handleLogin() {
@@ -308,17 +312,21 @@ class AuthModule {
     document.body.appendChild(syncNote);
 
     app.switchScreen('home-screen');
+    // Render schedule panel immediately (don't wait for sync)
+    setTimeout(() => { if (window.scheduleModule) scheduleModule.renderAllPanels(); }, 80);
 
     // Background sync from Sheets after login
     this._syncFromSheets().then(() => {
-      syncNote.textContent = '✓ Synced with Sheets';
+      syncNote.textContent = '\u2713 Synced with Sheets';
       syncNote.style.background = 'rgba(48,209,88,0.9)';
       setTimeout(() => syncNote.remove(), 1800);
-      // Refresh panels after sync
+      // Refresh panels again after sync in case schedules updated
       this.renderUserProfileCard();
       if (window.scheduleModule) scheduleModule.renderAllPanels();
     }).catch(() => {
-      syncNote.remove();
+      syncNote.textContent = '\u26a0\ufe0f Offline mode';
+      syncNote.style.background = 'rgba(255,149,0,0.9)';
+      setTimeout(() => syncNote.remove(), 2000);
     });
   }
 

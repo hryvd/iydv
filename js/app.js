@@ -22,8 +22,46 @@ class App {
       if (user && user.MemberID) {
         this.switchScreen('home-screen');
         authModule.renderUserProfileCard();
+        // Force schedule panel render after everything is settled
+        setTimeout(() => {
+          if (window.scheduleModule) scheduleModule.renderAllPanels();
+        }, 100);
       } else {
         this.switchScreen('welcome-screen');
+      }
+
+      // ── Daily Attendance Auto-Refresh ────────────────────
+      // Reset attendance display at midnight (date change detection)
+      this._startDailyRefreshWatcher();
+    });
+  }
+
+  _startDailyRefreshWatcher() {
+    // Store today's date string on load
+    this._watchedDate = new Date().toISOString().split('T')[0];
+
+    // Check every 60 seconds if the date has changed (midnight rollover)
+    setInterval(() => {
+      const currentDate = new Date().toISOString().split('T')[0];
+      if (currentDate !== this._watchedDate) {
+        console.log('[App] Date changed — refreshing attendance status');
+        this._watchedDate = currentDate;
+        // Refresh the profile card which re-checks today's attendance
+        if (window.authModule) authModule.renderUserProfileCard();
+        // Refresh schedule panels in case a new training is now "today"
+        if (window.scheduleModule) scheduleModule.renderAllPanels();
+      }
+    }, 60 * 1000); // check every minute
+
+    // Also refresh when the user returns to the tab
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        const currentDate = new Date().toISOString().split('T')[0];
+        if (currentDate !== this._watchedDate) {
+          this._watchedDate = currentDate;
+          if (window.authModule) authModule.renderUserProfileCard();
+          if (window.scheduleModule) scheduleModule.renderAllPanels();
+        }
       }
     });
   }
