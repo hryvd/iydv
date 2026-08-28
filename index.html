@@ -944,39 +944,54 @@
           <span>Official Philippines eGov SSO Authentication. Instant citizen verification with zero password creation required.</span>
         </div>
 
-        <!-- Quick Sandbox Accounts -->
-        <div class="egov-section">
-          <div class="egov-section-title">
-            <i data-lucide="zap" style="color:#FCD116;"></i> Quick Sandbox Test Accounts (1-Click Login)
-          </div>
-          <div id="egov-sandbox-accounts-list" class="egov-sandbox-grid"></div>
-        </div>
-
-        <div class="egov-divider"><span>OR AUTHENTICATE WITH MOBILE / OTP</span></div>
-
-        <!-- Step 1: Mobile & OTP -->
-        <div id="egov-step-otp" class="egov-step-block">
-          <form id="egov-otp-step-form">
-            <div class="form-group mb-2">
-              <label class="form-label">Registered Mobile Number / Email</label>
-              <input type="text" id="egov-otp-mobile-input" class="form-control" value="+639090000001" placeholder="+639090000001" required>
-            </div>
+        <!-- Step 1: Mobile Number / Email Entry -->
+        <div id="egov-step-mobile" class="egov-step-block">
+          <form id="egov-mobile-step-form">
             <div class="form-group mb-3">
-              <label class="form-label">OTP Code (Sandbox: 123456)</label>
-              <input type="text" id="egov-otp-code-input" class="form-control" value="123456" placeholder="123456" required>
+              <label class="form-label">Registered eGov Mobile Number / Email *</label>
+              <input type="text" id="egov-mobile-input" class="form-control" placeholder="e.g. +639090000001 or citizen@example.com" required>
+              <small class="form-text" style="color:var(--text-tertiary); font-size:0.7rem; margin-top:4px; display:block;">
+                Enter your eGovPH registered mobile number (+63 format) or institutional email.
+              </small>
             </div>
-            <button type="submit" class="btn btn-egov w-100">SEND & VALIDATE OTP</button>
+            <button type="submit" class="btn btn-egov w-100">
+              <i data-lucide="send" style="width:16px; height:16px;"></i> GENERATE & SEND OTP
+            </button>
           </form>
         </div>
 
-        <!-- Step 2: PIN Input -->
+        <!-- Step 2: OTP Verification -->
+        <div id="egov-step-otp" class="egov-step-block" style="display:none;">
+          <form id="egov-otp-step-form">
+            <div class="egov-step-header mb-3" style="background:rgba(255,255,255,0.04); padding:10px 12px; border-radius:10px; border-left:3px solid #FCD116;">
+              <div style="font-size:0.78rem; font-weight:700; color:#FFF;" id="egov-otp-target-display">OTP code sent</div>
+              <div style="font-size:0.7rem; color:var(--text-tertiary);">Check your mobile SMS or email inbox (Sandbox OTP: 123456)</div>
+            </div>
+            <div class="form-group mb-3">
+              <label class="form-label">Enter 6-Digit OTP Code *</label>
+              <input type="text" id="egov-otp-code-input" class="form-control text-center" placeholder="123456" maxlength="6" style="letter-spacing:4px; font-size:1.1rem; font-weight:800;" required>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="egovSSO.resetModalFlow()" style="flex:1;">CHANGE NUMBER</button>
+              <button type="submit" class="btn btn-egov" style="flex:2;">VALIDATE OTP CODE</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Step 3: eGov PIN Authentication -->
         <div id="egov-step-pin" class="egov-step-block" style="display:none;">
           <form id="egov-pin-step-form">
-            <div class="form-group mb-3">
-              <label class="form-label">eGov PIN (Sandbox: 000000)</label>
-              <input type="password" id="egov-pin-code-input" class="form-control" value="000000" placeholder="000000" maxlength="6" required>
+            <div class="egov-step-header mb-3" style="background:rgba(48,209,88,0.12); padding:10px 12px; border-radius:10px; border-left:3px solid #30D158;">
+              <div style="font-size:0.78rem; font-weight:700; color:#30D158;">✓ OTP Code Verified Successfully</div>
+              <div style="font-size:0.7rem; color:var(--text-tertiary);">Enter your 6-digit eGov PIN to complete authentication (Sandbox PIN: 000000)</div>
             </div>
-            <button type="submit" class="btn btn-egov w-100">VERIFY PIN & SIGN IN</button>
+            <div class="form-group mb-3">
+              <label class="form-label">Enter 6-Digit eGov PIN *</label>
+              <input type="password" id="egov-pin-code-input" class="form-control text-center" placeholder="••••••" maxlength="6" style="letter-spacing:6px; font-size:1.2rem;" required>
+            </div>
+            <button type="submit" class="btn btn-egov w-100">
+              <i data-lucide="shield-check" style="width:16px; height:16px;"></i> VERIFY PIN & SIGN IN
+            </button>
           </form>
         </div>
 

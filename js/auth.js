@@ -129,10 +129,24 @@ class AuthModule {
 
             <div class="profile-badges-row" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">
               ${roleLabel ? `<div class="admin-role-banner"><i data-lucide="shield-check" style="width:10px;height:10px;"></i> ${roleLabel}</div>` : ''}
-              ${user.eGovVerified ? `<div class="egov-status-pill"><i data-lucide="check-circle"></i> Citizen SSO Connected</div>` : ''}
+              ${user.eGovVerified ? `<div class="egov-status-pill"><i data-lucide="check-circle"></i> eGov Citizen SSO Connected</div>` : ''}
             </div>
 
-            <div class="profile-actions-row">
+            ${user.eGovVerified ? `
+              <div class="egov-citizen-meta-grid" style="margin-top:8px; padding:8px 10px; background:rgba(0,56,168,0.15); border:1px solid rgba(96,165,250,0.2); border-radius:10px; font-size:0.72rem; color:var(--text-secondary);">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">
+                  <div><strong>Email:</strong> ${user.Email || 'N/A'}</div>
+                  <div><strong>Mobile:</strong> ${user.ContactNumber || 'N/A'}</div>
+                  <div><strong>Birthdate:</strong> ${user.BirthDate || 'N/A'}</div>
+                  <div><strong>Sex:</strong> ${user.Sex === 'M' ? 'Male' : user.Sex === 'F' ? 'Female' : user.Sex || 'N/A'}</div>
+                  <div><strong>Nationality:</strong> ${user.Nationality || 'Filipino'}</div>
+                  <div><strong>UniqID:</strong> ${user.eGovUniqId || 'VERIFIED'}</div>
+                </div>
+                ${user.Address ? `<div style="margin-top:4px; border-top:1px solid rgba(255,255,255,0.06); padding-top:4px;"><strong>Address:</strong> ${user.Address}</div>` : ''}
+              </div>
+            ` : ''}
+
+            <div class="profile-actions-row" style="margin-top:10px;">
               <button class="edit-stats-pill-btn" onclick="app.openModal('edit-stats-modal')">
                 <i data-lucide="pencil" style="width: 11px; height: 11px;"></i> Edit Stats
               </button>
