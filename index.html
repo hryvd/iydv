@@ -1011,6 +1011,72 @@
     </div>
   </div>
 
+  <!-- ================= eGov Varsity Onboarding Modal ================= -->
+  <div id="egov-onboarding-modal" class="modal-overlay">
+    <div class="modal-content egov-modal-box">
+      <div class="modal-header egov-modal-header">
+        <div class="egov-header-title">
+          <span class="ph-flag">🇵🇭</span>
+          <div>
+            <h3>Complete Varsity Profile</h3>
+            <p>eGovPH Verified Registration</p>
+          </div>
+        </div>
+        <button class="modal-close-btn close-onboarding-modal">&times;</button>
+      </div>
+
+      <div class="modal-body egov-modal-body">
+        <div class="egov-banner-notice mb-3" style="background:rgba(48,209,88,0.12); border-color:rgba(48,209,88,0.4);">
+          <i data-lucide="check-circle" style="width:20px; height:20px; color:#30D158; flex-shrink:0;"></i>
+          <div>
+            <strong style="color:#30D158;" id="egov-onboarding-name">Citizen Name</strong>
+            <div style="font-size:0.7rem; color:var(--text-tertiary);" id="egov-onboarding-meta">Verified via eGovPH SSO</div>
+          </div>
+        </div>
+
+        <form id="egov-onboarding-form">
+          <div class="form-group mb-3">
+            <label class="form-label">Select Varsity Rank / Position *</label>
+            <select id="egov-onboard-rank" class="form-control" required>
+              <option value="Rookie">Rookie (1st Year / Trainee)</option>
+              <option value="Regular" selected>Regular Member</option>
+              <option value="Veteran">Veteran Member</option>
+              <option value="Team Captain">Team Captain / Officer</option>
+              <option value="Alumni">Alumni / Coach</option>
+            </select>
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="form-label">Program Focus *</label>
+            <select id="egov-onboard-program" class="form-control" required>
+              <option value="Whole Body" selected>Whole Body</option>
+              <option value="Upper Body Push">Upper Body Push</option>
+              <option value="Upper Body Pull">Upper Body Pull</option>
+              <option value="Legs & Lower">Legs & Lower</option>
+              <option value="Cardio & Plyo">Cardio & Plyo</option>
+              <option value="Dance Conditioning">Dance Conditioning</option>
+            </select>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;" class="mb-3">
+            <div class="form-group">
+              <label class="form-label">Weight (kg) *</label>
+              <input type="number" id="egov-onboard-weight" class="form-control" value="65" min="20" max="250" step="0.5" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Height (cm) *</label>
+              <input type="number" id="egov-onboard-height" class="form-control" value="170" min="100" max="250" step="1" required>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-egov w-100 mt-2">
+            <i data-lucide="sparkles" style="width:16px; height:16px;"></i> CREATE ACCOUNT & GO TO DASHBOARD
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- JavaScript Application Modules -->
   <script src="js/api.js"></script>
   <script src="js/egov.js"></script>

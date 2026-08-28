@@ -2,7 +2,7 @@
    IYDV ONEUP — eGovPH Single Sign-On (SSO) Integration Engine
    Gateway Base URL: https://platforms-api.e.gov.ph/egov-sso
    Partner Code: 2d0c24ee9ca249f49127cae6933b4116
-   Sequential Auth Flow: Step 1 (Mobile/Email) -> Step 2 (OTP) -> Step 3 (PIN)
+   Direct Dashboard Routing & Varsity Position Prompt
    ========================================================================== */
 
 const EGOV_CONFIG = {
@@ -15,6 +15,7 @@ class EGovSSO {
   constructor() {
     this.currentMobile = '';
     this.currentOtpToken = null;
+    this.pendingNewProfile = null;
     this.init();
   }
 
@@ -32,6 +33,9 @@ class EGovSSO {
       }
       if (e.target.closest('.close-egov-modal')) {
         this.closeModal();
+      }
+      if (e.target.closest('.close-onboarding-modal')) {
+        this.closeOnboardingModal();
       }
     });
 
@@ -67,6 +71,14 @@ class EGovSSO {
         if (codeInput && codeInput.value.trim()) {
           this.exchangeCodeForProfile(codeInput.value.trim());
         }
+      });
+    }
+
+    const onboardingForm = document.getElementById('egov-onboarding-form');
+    if (onboardingForm) {
+      onboardingForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.completeOnboardingRegistration();
       });
     }
   }
@@ -147,7 +159,6 @@ class EGovSSO {
         throw new Error(resGen.error);
       }
 
-      // Progress UI to Step 2 (OTP Entry)
       document.getElementById('egov-step-mobile').style.display = 'none';
       document.getElementById('egov-step-otp').style.display = 'block';
       document.getElementById('egov-step-pin').style.display = 'none';
@@ -157,7 +168,7 @@ class EGovSSO {
         targetDisplay.textContent = `OTP code sent to: ${username}`;
       }
 
-      this.showToast('📲 OTP code sent! Check your device or use Sandbox OTP 123456.', 'info');
+      this.showToast('📲 OTP code sent! Check your device (Sandbox OTP: 123456).', 'info');
 
     } catch (err) {
       console.error('[eGov OTP Gen Error]:', err);
@@ -205,7 +216,6 @@ class EGovSSO {
 
       this.currentOtpToken = valData.otp_validation_token;
 
-      // Progress UI to Step 3 (PIN Entry)
       document.getElementById('egov-step-mobile').style.display = 'none';
       document.getElementById('egov-step-otp').style.display = 'none';
       document.getElementById('egov-step-pin').style.display = 'block';
@@ -262,7 +272,6 @@ class EGovSSO {
         throw new Error(authData?.error || 'eGov PIN authentication failed');
       }
 
-      // Step 4: Exchange token for citizen profile
       await this.exchangeCodeForProfile(authData.exchange_code);
 
     } catch (err) {
@@ -344,7 +353,6 @@ class EGovSSO {
   loginCitizenProfile(profile) {
     const members = store.getMembers();
 
-    // Construct full name with first, middle, last, suffix
     const nameParts = [
       profile.first_name || '',
       profile.middle_name || '',
@@ -374,7 +382,7 @@ class EGovSSO {
     }
 
     if (member) {
-      // Update existing account with full eGov citizen metadata
+      // ── RETURNING USER: Update metadata and direct STRAIGHT to Dashboard! ──
       member.FullName = fullName;
       member.Email = email;
       member.ContactNumber = mobile;
@@ -387,47 +395,100 @@ class EGovSSO {
       member.eGovUniqId = profile.uniqid || member.eGovUniqId || 'EGOV-VERIFIED';
       member.eGovProfile = profile;
       store.saveMember(member);
-    } else {
-      // Auto-register new citizen athlete with complete profile details
-      let defaultRank = 'Rookie';
-      if (fullName.toUpperCase().includes('REYES')) defaultRank = 'Team Captain';
-      if (fullName.toUpperCase().includes('FLORES')) defaultRank = 'Alumni';
 
-      member = {
-        MemberID: 'M' + String(members.length + 1).padStart(3, '0'),
-        Username: (profile.first_name || 'egov').toLowerCase().replace(/[^a-z0-9]/g, '') + String(members.length + 1),
-        FullName: fullName,
-        Rank: defaultRank,
-        ProgramFocus: 'Whole Body',
-        Email: email,
-        ContactNumber: mobile,
-        BirthDate: birthDate,
-        Sex: sex,
-        Nationality: nationality,
-        CivilStatus: civilStatus,
-        Address: address,
-        DateJoined: new Date().toISOString().split('T')[0],
-        WeightKg: 65,
-        HeightCm: 170,
-        BMI: 22.5,
-        BMICategory: 'Normal',
-        Status: 'Active',
-        Notes: `Registered & Verified via Official eGovPH SSO (ID: ${profile.uniqid || 'VERIFIED'})`,
-        eGovVerified: true,
-        eGovUniqId: profile.uniqid || 'EGOV-' + Date.now(),
-        eGovProfile: profile,
-        Avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${fullName}`
+      store.setCurrentUser(member);
+      authModule.renderUserProfileCard();
+
+      this.showToast(`🇵🇭 Welcome back, ${member.FullName}! Directing to dashboard...`, 'success');
+      app.switchScreen('home-screen');
+      setTimeout(() => {
+        if (window.scheduleModule) scheduleModule.renderAllPanels();
+      }, 100);
+
+    } else {
+      // ── NEW USER: Prompt only missing Varsity Rank/Position & Program fields ──
+      this.pendingNewProfile = {
+        fullName,
+        email,
+        mobile,
+        birthDate,
+        sex,
+        nationality,
+        civilStatus,
+        address,
+        profile
       };
 
-      store.saveMember(member);
-      store.postToSheets('Members', member);
+      this.openOnboardingModal();
     }
+  }
 
-    store.setCurrentUser(member);
+  openOnboardingModal() {
+    const modal = document.getElementById('egov-onboarding-modal');
+    if (!modal || !this.pendingNewProfile) return;
+
+    const nameEl = document.getElementById('egov-onboarding-name');
+    const metaEl = document.getElementById('egov-onboarding-meta');
+    if (nameEl) nameEl.textContent = this.pendingNewProfile.fullName;
+    if (metaEl) metaEl.textContent = `Verified Citizen (${this.pendingNewProfile.email} • ${this.pendingNewProfile.mobile})`;
+
+    modal.classList.add('active');
+    if (window.lucide) lucide.createIcons();
+  }
+
+  closeOnboardingModal() {
+    const modal = document.getElementById('egov-onboarding-modal');
+    if (modal) modal.classList.remove('active');
+  }
+
+  completeOnboardingRegistration() {
+    if (!this.pendingNewProfile) return;
+
+    const rank = document.getElementById('egov-onboard-rank').value || 'Regular';
+    const program = document.getElementById('egov-onboard-program').value || 'Whole Body';
+    const weight = parseFloat(document.getElementById('egov-onboard-weight').value) || 65;
+    const height = parseFloat(document.getElementById('egov-onboard-height').value) || 170;
+
+    const members = store.getMembers();
+    const profile = this.pendingNewProfile.profile;
+
+    const newMember = {
+      MemberID: 'M' + String(members.length + 1).padStart(3, '0'),
+      Username: (profile.first_name || 'egov').toLowerCase().replace(/[^a-z0-9]/g, '') + String(members.length + 1),
+      FullName: this.pendingNewProfile.fullName,
+      Rank: rank,
+      ProgramFocus: program,
+      Email: this.pendingNewProfile.email,
+      ContactNumber: this.pendingNewProfile.mobile,
+      BirthDate: this.pendingNewProfile.birthDate,
+      Sex: this.pendingNewProfile.sex,
+      Nationality: this.pendingNewProfile.nationality,
+      CivilStatus: this.pendingNewProfile.civilStatus,
+      Address: this.pendingNewProfile.address,
+      DateJoined: new Date().toISOString().split('T')[0],
+      WeightKg: weight,
+      HeightCm: height,
+      BMI: parseFloat((weight / Math.pow(height / 100, 2)).toFixed(1)),
+      BMICategory: (weight / Math.pow(height / 100, 2)) < 18.5 ? 'Underweight' : (weight / Math.pow(height / 100, 2)) < 25 ? 'Normal' : 'Overweight',
+      Status: 'Active',
+      Notes: `Registered & Verified via Official eGovPH SSO (UniqID: ${profile.uniqid || 'VERIFIED'})`,
+      eGovVerified: true,
+      eGovUniqId: profile.uniqid || 'EGOV-' + Date.now(),
+      eGovProfile: profile,
+      Avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${this.pendingNewProfile.fullName}`
+    };
+
+    store.saveMember(newMember);
+    store.postToSheets('Members', newMember);
+    store.setCurrentUser(newMember);
+
+    this.closeOnboardingModal();
+    this.pendingNewProfile = null;
+
     authModule.renderUserProfileCard();
+    this.showToast(`🎉 Account Created! Welcome to IYDV ONEUP, ${newMember.FullName}.`, 'success');
 
-    this.showToast(`🇵🇭 Welcome, ${member.FullName}! Signed in & verified via eGovPH SSO.`, 'success');
-
+    // DIRECT IMMEDIATELY TO DASHBOARD!
     app.switchScreen('home-screen');
     setTimeout(() => {
       if (window.scheduleModule) scheduleModule.renderAllPanels();
