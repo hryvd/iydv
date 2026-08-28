@@ -1423,3 +1423,315 @@ canvas { width: 100% !important; height: 100% !important; }
 .justify-between { justify-content: space-between; }
 .align-center { align-items: center; }
 .gap-2 { gap: 8px; }
+
+/* ==========================================================================
+   eGovPH Single Sign-On (SSO) Design System & Components
+   Official Colors: Royal Blue (#0038A8), Sun Yellow (#FCD116), Crimson (#CE1126)
+   ========================================================================== */
+
+.btn-egov {
+  background: linear-gradient(135deg, #002878 0%, #0038A8 50%, #0055FE 100%);
+  color: #FFFFFF;
+  border: 1px solid rgba(252, 209, 22, 0.4);
+  box-shadow: 0 4px 20px rgba(0, 56, 168, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.25s var(--ease-smooth);
+}
+
+.btn-egov:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(0, 56, 168, 0.6), 0 0 12px rgba(252, 209, 22, 0.3);
+  border-color: #FCD116;
+}
+
+.btn-egov:active {
+  transform: scale(0.98);
+}
+
+.egov-ph-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+/* eGov Verified Badge in User Profile & Headers */
+.egov-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, rgba(0, 56, 168, 0.3), rgba(0, 85, 254, 0.2));
+  color: #60A5FA;
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.egov-verified-badge i {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.5;
+  color: #FCD116;
+}
+
+.egov-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 56, 168, 0.2);
+  color: #93C5FD;
+  border: 1px solid rgba(0, 56, 168, 0.4);
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.egov-status-pill i {
+  width: 11px;
+  height: 11px;
+  color: #30D158;
+}
+
+.egov-link-pill-btn {
+  background: rgba(0, 56, 168, 0.25);
+  border: 1px solid rgba(0, 56, 168, 0.5);
+  color: #93C5FD;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.2s ease;
+}
+
+.egov-link-pill-btn:hover {
+  background: rgba(0, 56, 168, 0.45);
+  color: #FFF;
+  border-color: #FCD116;
+}
+
+/* eGov Modal Styling */
+.egov-modal-box {
+  max-width: 480px;
+  width: 92%;
+  background: #0F131D;
+  border: 1px solid rgba(0, 85, 254, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 56, 168, 0.25);
+}
+
+.egov-modal-header {
+  background: linear-gradient(135deg, #040A1A 0%, #002878 100%);
+  border-bottom: 1px solid rgba(252, 209, 22, 0.2);
+  padding: 16px 20px;
+}
+
+.egov-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.egov-header-title .ph-flag {
+  font-size: 1.8rem;
+}
+
+.egov-header-title h3 {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #FFFFFF;
+}
+
+.egov-header-title p {
+  font-size: 0.72rem;
+  color: #93C5FD;
+}
+
+.egov-modal-body {
+  padding: 20px;
+  position: relative;
+}
+
+.egov-banner-notice {
+  background: rgba(0, 56, 168, 0.2);
+  border: 1px solid rgba(252, 209, 22, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.75rem;
+  color: #E2E8F0;
+  line-height: 1.4;
+}
+
+.egov-section-title {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #93C5FD;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.egov-sandbox-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.egov-sandbox-pill-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.egov-sandbox-pill-btn:hover {
+  background: rgba(0, 56, 168, 0.25);
+  border-color: rgba(96, 165, 250, 0.4);
+  transform: translateX(2px);
+}
+
+.sandbox-pill-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sandbox-pill-left i {
+  width: 18px;
+  height: 18px;
+  color: #FCD116;
+}
+
+.sandbox-pill-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #FFF;
+}
+
+.sandbox-pill-meta {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+}
+
+.sandbox-pill-badge {
+  background: linear-gradient(135deg, #0038A8, #0055FE);
+  color: #FFF;
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.egov-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 16px 0;
+}
+
+.egov-divider::before, .egov-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.egov-divider span {
+  padding: 0 10px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  letter-spacing: 0.5px;
+}
+
+/* Spinner Overlay inside Modal */
+.egov-spinner-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 19, 29, 0.92);
+  backdrop-filter: blur(4px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.egov-spinner-overlay .spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid rgba(0, 56, 168, 0.3);
+  border-top-color: #FCD116;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+#egov-modal-status-text {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #93C5FD;
+}
+
+/* Toast Notifications */
+.egov-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: #002878;
+  color: #FFF;
+  border: 1px solid #FCD116;
+  padding: 12px 20px;
+  border-radius: var(--radius-full);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 56, 168, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  z-index: 99999;
+  opacity: 0;
+  transition: all 0.3s var(--ease-spring);
+}
+
+.egov-toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+.egov-toast i {
+  width: 18px;
+  height: 18px;
+  color: #FCD116;
+}
+

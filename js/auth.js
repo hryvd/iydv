@@ -121,10 +121,16 @@ class AuthModule {
           </div>
 
           <div class="profile-details-block">
-            <h2 class="profile-name-text">${user.FullName}</h2>
+            <h2 class="profile-name-text">
+              ${user.FullName}
+              ${user.eGovVerified ? `<span class="egov-verified-badge" title="Verified Philippine Citizen via eGovPH SSO"><i data-lucide="shield-check"></i> eGovPH Verified</span>` : ''}
+            </h2>
             <div class="profile-sub-text">ID: <strong>${user.MemberID}</strong> &nbsp;•&nbsp; ${user.ProgramFocus || 'Whole Body'}</div>
 
-            ${roleLabel ? `<div class="admin-role-banner"><i data-lucide="shield-check" style="width:10px;height:10px;"></i> ${roleLabel}</div>` : ''}
+            <div class="profile-badges-row" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">
+              ${roleLabel ? `<div class="admin-role-banner"><i data-lucide="shield-check" style="width:10px;height:10px;"></i> ${roleLabel}</div>` : ''}
+              ${user.eGovVerified ? `<div class="egov-status-pill"><i data-lucide="check-circle"></i> Citizen SSO Connected</div>` : ''}
+            </div>
 
             <div class="profile-actions-row">
               <button class="edit-stats-pill-btn" onclick="app.openModal('edit-stats-modal')">
@@ -133,6 +139,7 @@ class AuthModule {
               <button class="trigger-avatar-upload upload-photo-pill-btn">
                 <i data-lucide="upload" style="width: 11px; height: 11px;"></i> Photo
               </button>
+              ${!user.eGovVerified ? `<button class="egov-link-pill-btn egov-signin-btn"><i data-lucide="shield"></i> Connect eGov</button>` : ''}
             </div>
           </div>
         </div>
