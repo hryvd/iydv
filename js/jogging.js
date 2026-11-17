@@ -7,6 +7,7 @@ class JoggingModule {
     this.timerInterval = null;
     this.totalSeconds = 11 * 60; // Default 11 min
     this.elapsedSeconds = 0;
+    this.elapsedMilliseconds = 0;
     this.currentPhaseIndex = 0;
     this.phaseTimeRemaining = 0;
     this.isRunning = false;
@@ -23,6 +24,7 @@ class JoggingModule {
     document.addEventListener('click', (e) => {
       if (e.target.closest('.preset-duration-btn')) {
         const btn = e.target.closest('.preset-duration-btn');
+        if (this.elapsedSeconds > 0 && !confirm('Reset the current interval session and change its duration?')) return;
         document.querySelectorAll('.preset-duration-btn').forEach(b => b.classList.remove('btn-primary'));
         document.querySelectorAll('.preset-duration-btn').forEach(b => b.classList.add('btn-outline'));
         btn.classList.add('btn-primary');
@@ -40,6 +42,7 @@ class JoggingModule {
     if (startBtn) startBtn.addEventListener('click', () => this.startTimer());
     if (pauseBtn) pauseBtn.addEventListener('click', () => this.pauseTimer());
     if (resetBtn) resetBtn.addEventListener('click', () => this.resetTimer());
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && this.isRunning) this.tick(); });
   }
 
   setDuration(mins) {
@@ -65,37 +68,36 @@ class JoggingModule {
 
   startTimer() {
     if (this.isRunning) return;
+    const user = store.getCurrentUser();
+    if (!user) return;
+    if (this.sessionMemberID && this.sessionMemberID !== user.MemberID) this.resetTimer();
+    this.sessionMemberID = user.MemberID;
+    this.startedAt = Date.now();
     this.isRunning = true;
-    
     document.getElementById('jog-start-btn').style.display = 'none';
     document.getElementById('jog-pause-btn').style.display = 'inline-flex';
-
     this.playSoundCue(600, 0.2);
+    this.timerInterval = setInterval(() => this.tick(), 250);
+  }
 
-    this.timerInterval = setInterval(() => {
-      this.elapsedSeconds++;
-      this.phaseTimeRemaining--;
-
-      if (this.phaseTimeRemaining <= 0) {
-        if (this.currentPhaseIndex < this.phases.length - 1) {
-          this.currentPhaseIndex++;
-          this.phaseTimeRemaining = this.phases[this.currentPhaseIndex].duration;
-          
-          // Sound cue on transition
-          const freq = this.phases[this.currentPhaseIndex].name === 'SPRINT' ? 880 : 523;
-          this.playSoundCue(freq, 0.4);
-        }
-      }
-
-      if (this.elapsedSeconds >= this.totalSeconds) {
-        this.completeSession();
-      } else {
-        this.updateDisplay();
-      }
-    }, 1000);
+  tick() {
+    this.elapsedSeconds = Math.min(this.totalSeconds, Math.floor((this.elapsedMilliseconds + Date.now() - this.startedAt) / 1000));
+    const previousPhase = this.currentPhaseIndex;
+    let remaining = this.elapsedSeconds;
+    this.currentPhaseIndex = 0;
+    for (let index = 0; index < this.phases.length; index++) {
+      this.currentPhaseIndex = index;
+      this.phaseTimeRemaining = Math.max(0, this.phases[index].duration - remaining);
+      if (remaining < this.phases[index].duration) break;
+      remaining -= this.phases[index].duration;
+    }
+    if (this.elapsedSeconds >= this.totalSeconds) return this.completeSession();
+    if (previousPhase !== this.currentPhaseIndex) this.playSoundCue(this.currentPhaseIndex === 1 ? 880 : 523, 0.4);
+    this.updateDisplay();
   }
 
   pauseTimer() {
+    if (this.isRunning) this.elapsedMilliseconds = Math.min(this.totalSeconds * 1000, this.elapsedMilliseconds + Date.now() - this.startedAt);
     this.isRunning = false;
     clearInterval(this.timerInterval);
     const startBtn = document.getElementById('jog-start-btn');
@@ -107,6 +109,8 @@ class JoggingModule {
   resetTimer() {
     this.pauseTimer();
     this.elapsedSeconds = 0;
+    this.elapsedMilliseconds = 0;
+    this.sessionMemberID = null;
     this.currentPhaseIndex = 0;
     if (this.phases && this.phases[0]) {
       this.phaseTimeRemaining = this.phases[0].duration;
@@ -151,28 +155,31 @@ class JoggingModule {
     this.playSoundCue(1046, 0.8);
     
     const user = store.getCurrentUser();
+    if (!user || user.MemberID !== this.sessionMemberID) return this.resetTimer();
     const durationMins = Math.round(this.totalSeconds / 60);
 
     const log = {
-      LogID: 'L' + String(Date.now()).slice(-6),
-      Date: new Date().toISOString().split('T')[0],
+      LogID: 'L' + crypto.randomUUID(),
+      Date: localDate(),
       MemberID: user.MemberID,
       Program: 'Jogging',
       Exercise: `Jog (${durationMins-1.5}m) -> Sprint (30s) -> Walk (1m)`,
       SetNum: 1,
       Reps: 1,
       WeightLbs: 0,
-      RPE: 8.5,
+      RPE: 0,
       Notes: `Completed full ${durationMins} minute interval jogging session!`
     };
 
     store.addWorkoutLog(log);
 
-    alert(`🏆 GREAT JOB! You completed the ${durationMins}-minute Jogging Protocol! Session saved to your workout logs.`);
+    app.notify(`${durationMins}-minute interval session completed and logged. Great work!`, 'success');
+    app.renderPreviousWorkoutsList();
     this.resetTimer();
   }
 
   playSoundCue(freq, duration = 0.3) {
+    if (!window.AudioContext && !window.webkitAudioContext) return;
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
@@ -184,6 +191,7 @@ class JoggingModule {
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + duration);
+      osc.onended = () => ctx.close();
     } catch (e) {
       console.log('Sound cue skipped:', e);
     }

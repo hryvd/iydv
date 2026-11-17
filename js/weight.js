@@ -9,6 +9,9 @@ class WeightModule {
 
   init() {
     this.bindEvents();
+    window.addEventListener('resize', () => {
+      if (document.getElementById('progress-weight-view')?.offsetParent) this.renderWeightChart();
+    });
   }
 
   bindEvents() {
@@ -23,10 +26,12 @@ class WeightModule {
   }
 
   openWeightModal() {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = localDate();
     const user = store.getCurrentUser();
     
+    if (!user) return;
     document.getElementById('weight-date-input').value = todayStr;
+    document.getElementById('weight-date-input').max = todayStr;
     document.getElementById('weight-kg-input').value = user.WeightKg || '';
     
     app.openModal('weight-update-modal');
@@ -34,16 +39,17 @@ class WeightModule {
 
   handleSaveWeight() {
     const user = store.getCurrentUser();
+    if (!user) return;
     const dateStr = document.getElementById('weight-date-input').value;
     const weightKg = parseFloat(document.getElementById('weight-kg-input').value);
 
-    if (!dateStr) {
-      alert('Please select a valid date.');
+    if (!dateStr || !Number.isFinite(Date.parse(dateStr)) || dateStr > localDate()) {
+      app.notify('Choose today or an earlier date.', 'error');
       return;
     }
 
-    if (isNaN(weightKg) || weightKg <= 0) {
-      alert('Please enter a valid weight in kg.');
+    if (!Number.isFinite(weightKg) || weightKg < 20 || weightKg > 350) {
+      app.notify('Enter a weight between 20 and 350 kg.', 'error');
       return;
     }
 
@@ -57,7 +63,7 @@ class WeightModule {
     this.renderWeightChart();
 
     app.closeModal('weight-update-modal');
-    alert(`Weight update saved! Weight logged: ${weightKg} kg (${newLog.ChangeKg >= 0 ? '+' : ''}${newLog.ChangeKg} kg vs last entry).`);
+    app.notify(`Weight logged: ${weightKg} kg.`, 'success');
   }
 
   renderWeightLogsHistory() {
@@ -65,6 +71,7 @@ class WeightModule {
     if (!container) return;
 
     const user = store.getCurrentUser();
+    if (!user) return;
     const logs = store.getWeightLogs(user.MemberID)
       .sort((a,b) => new Date(b.Date) - new Date(a.Date)); // Newest first
 
@@ -76,9 +83,9 @@ class WeightModule {
     container.innerHTML = logs.map(l => {
       let deltaBadge = '';
       if (l.ChangeKg > 0) {
-        deltaBadge = `<span class="badge badge-warning">▲ +${l.ChangeKg} kg</span>`;
+        deltaBadge = `<span class="badge badge-warning">▲ +${escapeHTML(l.ChangeKg)} kg</span>`;
       } else if (l.ChangeKg < 0) {
-        deltaBadge = `<span class="badge badge-success">▼ ${l.ChangeKg} kg</span>`;
+        deltaBadge = `<span class="badge badge-primary">▼ ${escapeHTML(l.ChangeKg)} kg</span>`;
       } else {
         deltaBadge = `<span class="badge badge-primary">0 kg</span>`;
       }
@@ -86,8 +93,8 @@ class WeightModule {
       return `
         <div class="list-item">
           <div>
-            <div class="list-title">${l.WeightKg} kg</div>
-            <div class="list-subtitle">${l.Date}</div>
+            <div class="list-title">${escapeHTML(l.WeightKg)} kg</div>
+            <div class="list-subtitle">${escapeHTML(l.Date)}</div>
           </div>
           <div>${deltaBadge}</div>
         </div>
@@ -101,19 +108,9 @@ class WeightModule {
 
     const ctx = canvas.getContext('2d');
     const user = store.getCurrentUser();
+    if (!user) return;
     let logs = store.getWeightLogs(user.MemberID)
       .sort((a,b) => new Date(a.Date) - new Date(b.Date)); // Chronological
-
-    if (logs.length < 2) {
-      // Create sample points if less than 2 logs
-      const baseW = user.WeightKg || 68;
-      logs = [
-        { Date: 'Aug 1', WeightKg: baseW + 2 },
-        { Date: 'Aug 8', WeightKg: baseW + 1 },
-        { Date: 'Aug 15', WeightKg: baseW + 0.5 },
-        { Date: 'Aug 19', WeightKg: baseW }
-      ];
-    }
 
     // Set high-DPI canvas scaling
     const rect = canvas.getBoundingClientRect();
@@ -126,6 +123,19 @@ class WeightModule {
     const padding = 35;
 
     ctx.clearRect(0, 0, width, height);
+    const theme = getComputedStyle(canvas);
+    const labelColor = theme.getPropertyValue('--text-secondary').trim() || '#a8ba9b';
+    const gridColor = theme.getPropertyValue('--separator').trim() || '#354332';
+    if (!logs.length) {
+      ctx.fillStyle = labelColor;
+      ctx.font = '13px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Log your weight to start your trend.', width / 2, height / 2);
+      canvas.setAttribute('aria-label', 'No weight entries yet. Log your weight to start your trend.');
+      return;
+    }
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', `Weight trend: ${logs.length} entries, latest ${logs[logs.length - 1].WeightKg} kilograms. Details are listed below.`);
 
     // Find range
     const weights = logs.map(l => l.WeightKg);
@@ -134,7 +144,7 @@ class WeightModule {
     const range = maxW - minW || 1;
 
     // Draw background grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.strokeStyle = gridColor;
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let i = 0; i <= 3; i++) {
@@ -143,7 +153,7 @@ class WeightModule {
       ctx.lineTo(width - padding, y);
 
       const val = (maxW - (i / 3) * range).toFixed(1);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.fillStyle = labelColor;
       ctx.font = '10px Inter, sans-serif';
       ctx.fillText(`${val}kg`, 5, y + 3);
     }
@@ -151,7 +161,7 @@ class WeightModule {
 
     // Map points
     const points = logs.map((l, index) => {
-      const x = padding + (width - 2 * padding) * (index / (logs.length - 1));
+      const x = padding + (width - 2 * padding) * (logs.length === 1 ? 0.5 : index / (logs.length - 1));
       const y = height - padding - ((l.WeightKg - minW) / range) * (height - 2 * padding);
       return { x, y, weight: l.WeightKg, date: l.Date };
     });
@@ -193,7 +203,7 @@ class WeightModule {
       ctx.stroke();
 
       // Label value
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.fillStyle = labelColor;
       ctx.font = 'bold 10px Outfit, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(`${p.weight}`, p.x, p.y - 10);

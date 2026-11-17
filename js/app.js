@@ -1,311 +1,278 @@
-/* ==========================================================================
-   IYDV ONEUP - Main Application Router & Event Controller
-   Streamlined Apple 3-Tab Architecture with Schedule Panel
-   ========================================================================== */
-
+/* Navigation, accessible dialogs, and the daily training overview. */
 class App {
   constructor() {
     this.currentScreen = 'welcome-screen';
     this.activeTrainingSubtab = 'gym';
     this.activeProgressSubtab = 'goals';
-    this.init();
+    this.modalTriggers = new Map();
+    window.addEventListener('DOMContentLoaded', () => this.init());
   }
 
-  init() {
-    window.addEventListener('DOMContentLoaded', () => {
-      this.bindNavigation();
-      this.bindModals();
-      this.bindProgramButtons();
-      this.refreshIcons();
-
-      const user = store.getCurrentUser();
-      if (user && user.MemberID) {
-        this.switchScreen('home-screen');
-        authModule.renderUserProfileCard();
-        // Force schedule panel render after everything is settled
-        setTimeout(() => {
-          if (window.scheduleModule) scheduleModule.renderAllPanels();
-        }, 100);
-      } else {
-        this.switchScreen('welcome-screen');
-      }
-
-      // ── Daily Attendance Auto-Refresh ────────────────────
-      // Reset attendance display at midnight (date change detection)
-      this._startDailyRefreshWatcher();
+  async init() {
+    this.bindNavigation();
+    this.bindModals();
+    this.labelControls();
+    this.refreshIcons();
+    document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' });
+    window.addEventListener('beforeunload', event => {
+      const draft = gymModule.activeSetLogs.length || Object.keys(gymModule.completedExercises).length || Object.values(drillsModule.completedDrills).some(items => Object.keys(items).length) || joggingModule.isRunning;
+      if (draft) { event.preventDefault(); event.returnValue = ''; }
     });
-  }
-
-  _startDailyRefreshWatcher() {
-    // Store today's date string on load
-    this._watchedDate = new Date().toISOString().split('T')[0];
-
-    // Check every 60 seconds if the date has changed (midnight rollover)
-    setInterval(() => {
-      const currentDate = new Date().toISOString().split('T')[0];
-      if (currentDate !== this._watchedDate) {
-        console.log('[App] Date changed — refreshing attendance status');
-        this._watchedDate = currentDate;
-        // Refresh the profile card which re-checks today's attendance
-        if (window.authModule) authModule.renderUserProfileCard();
-        // Refresh schedule panels in case a new training is now "today"
-        if (window.scheduleModule) scheduleModule.renderAllPanels();
-      }
-    }, 60 * 1000); // check every minute
-
-    // Also refresh when the user returns to the tab
+    window.addEventListener('store-change', () => this.renderOverview());
+    window.addEventListener('store-status', ({ detail }) => {
+      const status = document.getElementById('save-status');
+      status.classList.toggle('error', detail.state === 'error');
+      status.replaceChildren(document.createElement('span'), document.createTextNode(detail.state === 'error' ? 'Not saved · retry' : detail.message));
+      status.title = detail.message;
+      if (detail.state === 'error') this.notify(detail.message, 'error');
+    });
+    window.addEventListener('session-lost', () => this.notify('Your session expired or changed. Export unsaved data before signing in again.', 'error'));
+    window.addEventListener('hashchange', () => this.navigateHash());
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        const currentDate = new Date().toISOString().split('T')[0];
-        if (currentDate !== this._watchedDate) {
-          this._watchedDate = currentDate;
-          if (window.authModule) authModule.renderUserProfileCard();
-          if (window.scheduleModule) scheduleModule.renderAllPanels();
-        }
+      if (!document.hidden && store.getCurrentUser()) {
+        this.renderOverview();
+        authModule.renderUserProfileCard();
+        scheduleModule.renderAllPanels();
       }
     });
+    try {
+      const user = await store.restoreSession();
+      if (user) this.navigateHash();
+      else this.switchScreen(['login-screen', 'create-account-screen'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'welcome-screen');
+    } catch (error) {
+      this.switchScreen('welcome-screen');
+      this.notify(error.message, 'error');
+    }
+  }
+
+  navigateHash() {
+    const target = location.hash.slice(1);
+    if (target === 'main-content') return;
+    this.switchScreen(document.getElementById(target)?.classList.contains('screen') ? target : 'home-screen');
   }
 
   bindNavigation() {
-    document.addEventListener('click', (e) => {
-      if (e.target.closest('.nav-item')) {
-        const item = e.target.closest('.nav-item');
-        const targetScreen = item.dataset.screen;
-
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        item.classList.add('active');
-
-        this.switchScreen(targetScreen);
-      }
-
-      if (e.target.closest('.action-tile')) {
-        const tile = e.target.closest('.action-tile');
-        const targetScreen = tile.dataset.screen;
-        const subtab = tile.dataset.subtab;
-        if (targetScreen) {
-          this.switchScreen(targetScreen);
-          if (targetScreen === 'gym-screen' && subtab) {
-            this.switchTrainingSubtab(subtab);
-          } else if (targetScreen === 'goals-screen' && subtab) {
-            this.switchProgressSubtab(subtab);
-          }
-        }
-      }
-
-      // Button data-screen navigation
-      if (e.target.closest('button[data-screen]') && !e.target.closest('.nav-item')) {
-        const btn = e.target.closest('button[data-screen]');
-        const targetScreen = btn.dataset.screen;
-        const subtab = btn.dataset.subtab;
-        if (targetScreen) {
-          this.switchScreen(targetScreen);
-          if (subtab && targetScreen === 'gym-screen') this.switchTrainingSubtab(subtab);
-          if (subtab && targetScreen === 'goals-screen') this.switchProgressSubtab(subtab);
-        }
-      }
+    document.addEventListener('click', event => {
+      const button = event.target.closest('[data-screen]');
+      if (!button) return;
+      this.switchScreen(button.dataset.screen);
+      if (button.dataset.subtab && button.dataset.screen === 'gym-screen') this.switchTrainingSubtab(button.dataset.subtab);
+      if (button.dataset.subtab && button.dataset.screen === 'goals-screen') this.switchProgressSubtab(button.dataset.subtab);
     });
-  }
-
-  bindProgramButtons() {
-    // Program select handled by gym module
-  }
-
-  bindModals() {
-    document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('modal-overlay')) {
-        e.target.classList.remove('active');
-      }
-      if (e.target.closest('.modal-close-btn')) {
-        const overlay = e.target.closest('.modal-overlay');
-        if (overlay) overlay.classList.remove('active');
-      }
+    document.getElementById('previous-workouts-container').addEventListener('click', event => {
+      const button = event.target.closest('[data-workout-date]');
+      if (button) this.viewWorkoutDetails(button.dataset.workoutDate);
     });
+    const saveStatus = document.getElementById('save-status');
+    saveStatus.setAttribute('role', 'button');
+    saveStatus.tabIndex = 0;
+    const retry = () => store.flush().catch(error => this.notify(error.message, 'error'));
+    saveStatus.addEventListener('click', retry);
+    saveStatus.addEventListener('keydown', event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); retry(); } });
   }
 
   switchScreen(screenId) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const publicScreens = ['welcome-screen', 'login-screen', 'create-account-screen'];
+    if (!store.getCurrentUser() && !publicScreens.includes(screenId)) screenId = 'welcome-screen';
     const target = document.getElementById(screenId);
-    if (target) {
-      target.classList.add('active');
-      this.currentScreen = screenId;
-    }
-
-    // Trigger screen-specific renders
-    if (screenId === 'home-screen') {
+    if (!target?.classList.contains('screen')) return;
+    const previous = this.currentScreen;
+    document.querySelectorAll('.screen').forEach(screen => screen.classList.toggle('active', screen === target));
+    document.body.classList.toggle('public-shell', publicScreens.includes(screenId));
+    this.currentScreen = screenId;
+    const names = { 'home-screen': 'Overview', 'gym-screen': 'Training', 'goals-screen': 'My progress', 'jogging-screen': 'Interval timer', 'dashboard-screen': 'Activity log' };
+    document.getElementById('page-title').textContent = names[screenId] || 'Welcome';
+    document.title = `${names[screenId] || 'Welcome'} · OneUp | IYDV`;
+    document.querySelectorAll('.nav-item').forEach(item => {
+      const active = item.dataset.screen === screenId;
+      item.classList.toggle('active', active);
+      if (active) item.setAttribute('aria-current', 'page'); else item.removeAttribute('aria-current');
+    });
+    if (publicScreens.includes(screenId) && !store.getCurrentUser()) this.clearPrivateViews();
+    if (location.hash !== `#${screenId}`) history.replaceState(null, '', `#${screenId}`);
+    if (!publicScreens.includes(screenId)) {
       authModule.renderUserProfileCard();
-      this.renderPreviousWorkoutsList();
-      if (window.scheduleModule) scheduleModule.renderSchedulePanel('schedule-panel-home');
-    } else if (screenId === 'gym-screen') {
-      if (this.activeTrainingSubtab === 'gym') {
-        gymModule.renderExerciseList();
-      } else {
-        drillsModule.renderDrills();
-      }
-      if (window.scheduleModule) scheduleModule.renderSchedulePanel('schedule-panel-gym');
-    } else if (screenId === 'goals-screen') {
-      if (this.activeProgressSubtab === 'goals') {
-        goalsModule.renderGoals();
-      } else if (this.activeProgressSubtab === 'skills') {
-        skillsModule.renderSkills();
-      } else if (this.activeProgressSubtab === 'weight') {
-        weightModule.renderWeightLogsHistory();
-        weightModule.renderWeightChart();
-      }
-      if (window.scheduleModule) scheduleModule.renderSchedulePanel('schedule-panel-goals');
-    } else if (screenId === 'dashboard-screen') {
-      dashboardModule.renderTeamDashboard();
-      if (window.scheduleModule) scheduleModule.renderSchedulePanel('schedule-panel-dashboard');
-    } else if (screenId === 'jogging-screen') {
-      // timer initialized by jogging module
+      if (screenId === 'home-screen') this.renderOverview();
+      if (screenId === 'gym-screen') this.switchTrainingSubtab(this.activeTrainingSubtab);
+      if (screenId === 'goals-screen') this.switchProgressSubtab(this.activeProgressSubtab);
+      if (screenId === 'dashboard-screen') dashboardModule.renderTeamDashboard();
+      scheduleModule.renderAllPanels();
     }
-
+    if (previous !== screenId) {
+      document.querySelector('.app-content').scrollTop = 0;
+      const heading = target.querySelector('h1, h2, input');
+      if (heading) { if (heading.tagName !== 'INPUT') heading.tabIndex = -1; heading.focus({ preventScroll: true }); }
+    }
     this.refreshIcons();
-    const appContent = document.querySelector('.app-content');
-    if (appContent) appContent.scrollTop = 0;
   }
 
   switchTrainingSubtab(subtab) {
-    this.activeTrainingSubtab = subtab;
-    const gymBtn = document.getElementById('training-subtab-gym');
-    const drillsBtn = document.getElementById('training-subtab-drills');
-    const gymView = document.getElementById('training-gym-view');
-    const drillsView = document.getElementById('training-drills-view');
-
-    if (subtab === 'gym') {
-      if (gymBtn) gymBtn.classList.add('active');
-      if (drillsBtn) drillsBtn.classList.remove('active');
-      if (gymView) gymView.style.display = 'block';
-      if (drillsView) drillsView.style.display = 'none';
-      gymModule.renderExerciseList();
-    } else {
-      if (drillsBtn) drillsBtn.classList.add('active');
-      if (gymBtn) gymBtn.classList.remove('active');
-      if (drillsView) drillsView.style.display = 'block';
-      if (gymView) gymView.style.display = 'none';
-      drillsModule.renderDrills();
+    this.activeTrainingSubtab = subtab === 'drills' ? 'drills' : 'gym';
+    for (const name of ['gym', 'drills']) {
+      const active = this.activeTrainingSubtab === name;
+      const button = document.getElementById(`training-subtab-${name}`);
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+      document.getElementById(`training-${name}-view`).style.display = active ? 'block' : 'none';
     }
+    if (this.activeTrainingSubtab === 'gym') gymModule.renderExerciseList(); else drillsModule.renderDrills();
     this.refreshIcons();
   }
 
   switchProgressSubtab(subtab) {
-    this.activeProgressSubtab = subtab;
-    const goalsBtn = document.getElementById('progress-subtab-goals');
-    const skillsBtn = document.getElementById('progress-subtab-skills');
-    const weightBtn = document.getElementById('progress-subtab-weight');
-
-    const goalsView = document.getElementById('progress-goals-view');
-    const skillsView = document.getElementById('progress-skills-view');
-    const weightView = document.getElementById('progress-weight-view');
-
-    [goalsBtn, skillsBtn, weightBtn].forEach(btn => btn && btn.classList.remove('active'));
-    [goalsView, skillsView, weightView].forEach(view => view && (view.style.display = 'none'));
-
-    if (subtab === 'goals') {
-      if (goalsBtn) goalsBtn.classList.add('active');
-      if (goalsView) goalsView.style.display = 'block';
-      goalsModule.renderGoals();
-    } else if (subtab === 'skills') {
-      if (skillsBtn) skillsBtn.classList.add('active');
-      if (skillsView) skillsView.style.display = 'block';
-      skillsModule.renderSkills();
-    } else if (subtab === 'weight') {
-      if (weightBtn) weightBtn.classList.add('active');
-      if (weightView) weightView.style.display = 'block';
-      weightModule.renderWeightLogsHistory();
-      weightModule.renderWeightChart();
+    this.activeProgressSubtab = ['goals', 'skills', 'weight'].includes(subtab) ? subtab : 'goals';
+    for (const name of ['goals', 'skills', 'weight']) {
+      const active = this.activeProgressSubtab === name;
+      const button = document.getElementById(`progress-subtab-${name}`);
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+      document.getElementById(`progress-${name}-view`).style.display = active ? 'block' : 'none';
     }
+    if (this.activeProgressSubtab === 'goals') goalsModule.renderGoals();
+    if (this.activeProgressSubtab === 'skills') skillsModule.renderSkills();
+    if (this.activeProgressSubtab === 'weight') { weightModule.renderWeightLogsHistory(); requestAnimationFrame(() => weightModule.renderWeightChart()); }
     this.refreshIcons();
+  }
+
+  labelControls(root = document) {
+    root.querySelectorAll('.form-label:not([for])').forEach(label => {
+      const input = label.parentElement.querySelector('input[id],select[id],textarea[id]');
+      if (input) label.htmlFor = input.id;
+    });
+    root.querySelectorAll('button[title]:not([aria-label])').forEach(button => button.setAttribute('aria-label', button.title));
+    root.querySelectorAll('button.toggle-password-btn').forEach(button => button.setAttribute('aria-label', 'Show or hide password'));
+  }
+
+  bindModals() {
+    document.addEventListener('click', event => {
+      if (event.target.classList.contains('modal-overlay')) this.dismissModal(event.target.id);
+      const close = event.target.closest('.modal-close-btn');
+      if (close) this.dismissModal(close.closest('.modal-overlay').id);
+    });
+    document.addEventListener('keydown', event => {
+      const active = [...document.querySelectorAll('.modal-overlay.active')].pop();
+      if (!active) return;
+      if (event.key === 'Escape') { event.preventDefault(); this.dismissModal(active.id); }
+      if (event.key === 'Tab') {
+        const focusable = [...active.querySelectorAll('button,input,select,textarea,a[href],[tabindex="0"]')].filter(element => !element.disabled && element.getClientRects().length);
+        const first = focusable[0], last = focusable.at(-1);
+        if (event.shiftKey && (document.activeElement === first || !active.contains(document.activeElement))) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
+    });
   }
 
   openModal(modalId) {
     const modal = document.getElementById(modalId);
-    if (modal) {
-      modal.classList.add('active');
-      this.refreshIcons();
-    }
+    if (!modal) return;
+    this.modalTriggers.set(modalId, document.activeElement);
+    modal.classList.add('active');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', modal.querySelector('.modal-title')?.textContent || 'Training dialog');
+    document.querySelector('.app-viewport-wrapper').inert = true;
+    this.labelControls(modal);
+    this.refreshIcons();
+    requestAnimationFrame(() => modal.querySelector('input:not([type="hidden"]),select,textarea,button')?.focus());
+  }
+
+  dismissModal(modalId) {
+    if (modalId === 'active-workout-modal' && gymModule.activeExercise) gymModule.endExerciseSession();
+    else this.closeModal(modalId);
   }
 
   closeModal(modalId) {
     const modal = document.getElementById(modalId);
-    if (modal) {
-      modal.classList.remove('active');
-    }
+    if (!modal) return;
+    modal.classList.remove('active');
+    if (modalId === 'rest-timer-modal') clearInterval(gymModule.restTimerInterval);
+    document.querySelector('.app-viewport-wrapper').inert = !!document.querySelector('.modal-overlay.active');
+    const trigger = this.modalTriggers.get(modalId);
+    if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+    this.modalTriggers.delete(modalId);
   }
 
-  refreshIcons() {
-    if (window.lucide) {
-      lucide.createIcons();
-    }
+  clearPrivateViews() {
+    for (const id of ['user-profile-card', 'previous-workouts-container', 'goals-list-container', 'skills-list-container', 'weight-history-list', 'team-metrics-grid', 'team-roster-list', 'attendance-approvals-list', 'workout-detail-content', 'report-summary-content', 'active-workout-content', 'top-attendance-banner', 'schedule-panel-home', 'schedule-panel-gym', 'schedule-panel-goals', 'schedule-panel-dashboard']) document.getElementById(id)?.replaceChildren();
+    document.getElementById('greeting-name').textContent = 'athlete';
+    for (const id of ['user-weight-display', 'user-height-display', 'user-bmi-display', 'user-bmi-category']) document.getElementById(id).textContent = '—';
+  }
+
+  refreshIcons() { this.labelControls(); if (window.lucide) lucide.createIcons({ attrs: { 'aria-hidden': 'true' } }); }
+
+  notify(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type === 'error' ? 'error' : ''}`;
+    const content = document.createElement('span'); content.textContent = message;
+    const close = document.createElement('button'); close.textContent = '×'; close.setAttribute('aria-label', 'Dismiss notification'); close.onclick = () => toast.remove();
+    toast.append(content, close);
+    document.getElementById('toast-region').append(toast);
+    setTimeout(() => toast.remove(), type === 'error' ? 14000 : 5000);
+  }
+
+  renderOverview() {
+    const user = store.getCurrentUser();
+    if (!user) return;
+    this.renderPreviousWorkoutsList();
+    const today = localDate();
+    const now = new Date(`${today}T12:00:00+08:00`);
+    const weekday = (now.getUTCDay() + 6) % 7;
+    const dates = Array.from({ length: 7 }, (_, index) => { const day = new Date(now); day.setUTCDate(day.getUTCDate() - weekday + index); return localDate(day); });
+    const trainingDays = new Set(store.getWorkoutLogs(user.MemberID).map(log => log.Date));
+    const count = dates.filter(date => date <= today && trainingDays.has(date)).length;
+    document.getElementById('week-session-count').textContent = count;
+    document.getElementById('week-encouragement').textContent = count ? `${count} day${count === 1 ? '' : 's'} of showing up. Keep your momentum.` : 'Your next session is a fresh start.';
+    document.getElementById('week-activity').innerHTML = dates.map((date, index) => `<div class="week-day ${date === today ? 'today' : ''} ${trainingDays.has(date) ? 'done' : ''}" aria-label="${date}: ${trainingDays.has(date) ? 'trained' : 'no training logged'}"><span>${['M','T','W','T','F','S','S'][index]}</span><i>${trainingDays.has(date) ? '✓' : Number(date.slice(-2))}</i></div>`).join('');
   }
 
   renderPreviousWorkoutsList() {
-    const container = document.getElementById('previous-workouts-container');
-    if (!container) return;
-
     const user = store.getCurrentUser();
-    if (!user) {
-      container.innerHTML = `<div class="text-center" style="font-size:0.75rem; color:var(--text-tertiary); padding:10px;">Sign in to view your workout history.</div>`;
-      return;
+    if (!user) return;
+    const container = document.getElementById('previous-workouts-container');
+    const grouped = Object.groupBy(store.getWorkoutLogs(user.MemberID), log => log.Date);
+    const dates = Object.keys(grouped).sort().reverse().slice(0, 3);
+    if (!dates.length) {
+      container.innerHTML = `<div class="empty-state"><span class="empty-icon"><i data-lucide="dumbbell"></i></span><h3>Your story starts with a session.</h3><p>Log a workout or complete a drill.<br>Your recent training will appear here.</p><button class="text-button" data-screen="gym-screen">Find your first workout <i data-lucide="arrow-right"></i></button></div>`;
+    } else {
+      container.innerHTML = dates.map(date => {
+        const logs = grouped[date];
+        return `<button class="list-item workout-history-item" data-workout-date="${escapeHTML(date)}"><span><span class="list-title">${escapeHTML(date === localDate() ? 'Today' : new Date(`${date}T12:00:00+08:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' }))} <span class="history-program">${escapeHTML(logs[0].Program || 'Training')}</span></span><span class="list-subtitle">${new Set(logs.map(log => log.Exercise)).size} exercises · ${logs.length} entries</span></span><i data-lucide="arrow-up-right"></i></button>`;
+      }).join('');
     }
-
-    const logs = store.getWorkoutLogs(user.MemberID);
-    const grouped = {};
-    logs.forEach(l => {
-      if (!grouped[l.Date]) grouped[l.Date] = [];
-      grouped[l.Date].push(l);
-    });
-
-    const dates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a)).slice(0, 4);
-
-    if (dates.length === 0) {
-      container.innerHTML = `<div class="text-center" style="font-size:0.75rem; color:var(--text-tertiary); padding:10px;">No previous workout sessions found.</div>`;
-      return;
-    }
-
-    container.innerHTML = dates.map(date => {
-      const sessionLogs = grouped[date];
-      const programName = sessionLogs[0].Program || 'GYM';
-      const exercisesCount = new Set(sessionLogs.map(s => s.Exercise)).size;
-
-      return `
-        <div class="list-item" onclick="app.viewWorkoutDetails('${date}')" style="cursor:pointer; border-left-color:var(--orange);">
-          <div>
-            <div class="list-title" style="color:var(--orange);">
-              ${date === new Date().toISOString().split('T')[0] ? 'TODAY' : date} [${programName.toUpperCase()}]
-            </div>
-            <div class="list-subtitle">${exercisesCount} exercise(s) • ${sessionLogs.length} set(s)</div>
-          </div>
-          <i data-lucide="chevron-right" style="width:16px; height:16px; color:var(--text-tertiary);"></i>
-        </div>
-      `;
-    }).join('');
-
     this.refreshIcons();
   }
 
-  viewWorkoutDetails(dateStr) {
+  viewWorkoutDetails(date) {
     const user = store.getCurrentUser();
     if (!user) return;
-
-    const logs = store.getWorkoutLogs(user.MemberID).filter(l => l.Date === dateStr);
-
-    const detailContainer = document.getElementById('workout-detail-content');
-    if (detailContainer) {
-      detailContainer.innerHTML = `
-        <div style="font-weight:800; color:var(--orange); margin-bottom:10px;">Session: ${dateStr}</div>
-        ${logs.map(l => `
-          <div style="background:rgba(255,255,255,0.04); border-left:3px solid var(--orange); padding:10px 12px; border-radius:10px; margin-bottom:6px; font-size:0.78rem;">
-            <strong style="color:var(--text-primary);">${l.Exercise}</strong>
-            <span style="color:var(--text-tertiary);"> (${l.Program})</span><br>
-            ${l['Set #'] ? `Set ${l['Set #']}: ` : ''}${l.Reps} reps @ ${l['Weight (lbs)'] || l.WeightLbs || 0} lbs ${l['RPE (1-10)'] || l.RPE ? `(RPE ${l['RPE (1-10)'] || l.RPE})` : ''}
-            ${l.Notes ? `<br><small style="color:var(--text-tertiary);">${l.Notes}</small>` : ''}
-          </div>
-        `).join('')}
-      `;
-    }
-
+    const logs = store.getWorkoutLogs(user.MemberID).filter(log => log.Date === date);
+    document.getElementById('workout-detail-content').innerHTML = `<p class="muted">${escapeHTML(date)} · ${logs.length} training entries</p>${logs.map(log => `<div class="list-item"><div class="list-title">${escapeHTML(log.Exercise)}</div><div class="list-subtitle">${escapeHTML(log.Program)}${log.Reps ? ` · ${escapeHTML(log.Reps)} reps` : ''}${log.WeightLbs || log['Weight (lbs)'] ? ` · ${escapeHTML(log.WeightLbs || log['Weight (lbs)'])} lbs` : ''}</div>${log.Notes ? `<p class="muted">${escapeHTML(log.Notes)}</p>` : ''}</div>`).join('')}`;
     this.openModal('view-workout-modal');
   }
-}
 
+  exportAccount() {
+    if (!store.getCurrentUser()) return;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(store.exportData(), null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a'); link.href = url; link.download = `oneup-data-${localDate()}.json`; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    this.notify('Your data export has been downloaded. Keep it somewhere private.');
+  }
+
+  deleteAccount() { this.openModal('delete-account-modal'); }
+
+  async confirmDeleteAccount(event) {
+    event.preventDefault();
+    const form = event.target, button = form.querySelector('[type="submit"]'), feedback = form.querySelector('.form-feedback');
+    button.disabled = true; feedback.hidden = true;
+    try {
+      await store.deleteAccount(form.elements.password.value);
+      authModule.resetTrainingDrafts();
+      form.reset();
+      document.querySelectorAll('.modal-overlay.active').forEach(modal => this.closeModal(modal.id));
+      this.switchScreen('welcome-screen');
+      this.notify('Your account and training records have been permanently deleted.');
+    } catch (error) { feedback.textContent = error.message; feedback.hidden = false; }
+    finally { button.disabled = false; }
+  }
+}
 const app = new App();

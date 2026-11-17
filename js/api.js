@@ -1,9 +1,10 @@
-/* ==========================================================================
-   IYDV ONEUP - Data Store & Google Sheets API
-   localStorage primary store + Google Sheets bidirectional sync
-   ========================================================================== */
-
-const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby27n7FzyFCnaLdDVstuLJBl4grnhn9FFOvny-AAymWKlQVQONgZTHBT3gdtSM6eIDdAQ/exec';
+/* Account-scoped training data; private records stay on the authenticated server. */
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
+function localDate(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+}
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'iydv_current_user',
@@ -83,78 +84,144 @@ function isOfficer(user) {
 
 class DataStore {
   constructor() {
+    this.currentUser = null;
+    this.revision = 0;
+    this.changeVersion = 0;
+    this.savedVersion = 0;
     this.init();
+    window.addEventListener('online', () => this.flush().catch(() => {}));
+    window.addEventListener('beforeunload', event => {
+      if (this.changeVersion !== this.savedVersion) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    });
   }
 
   init() {
-    if (!localStorage.getItem(STORAGE_KEYS.MEMBERS)) {
-      localStorage.setItem(STORAGE_KEYS.MEMBERS, JSON.stringify([]));
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.WORKOUT_LOGS)) {
-      localStorage.setItem(STORAGE_KEYS.WORKOUT_LOGS, JSON.stringify([]));
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.WEIGHT_LOGS)) {
-      localStorage.setItem(STORAGE_KEYS.WEIGHT_LOGS, JSON.stringify([]));
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.GOALS)) {
-      localStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify([]));
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.SKILLS)) {
-      localStorage.setItem(STORAGE_KEYS.SKILLS, JSON.stringify([]));
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.ATTENDANCE)) {
-      localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify([]));
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.TRAINING_SCHEDULES)) {
-      localStorage.setItem(STORAGE_KEYS.TRAINING_SCHEDULES, JSON.stringify([]));
-    }
-    if (!localStorage.getItem(STORAGE_KEYS.CUSTOM_DRILLS)) {
-      localStorage.setItem(STORAGE_KEYS.CUSTOM_DRILLS, JSON.stringify([]));
-    }
-    // Always refresh drills reference catalog
-    localStorage.setItem(STORAGE_KEYS.DRILLS_REF, JSON.stringify(DRILLS_REFERENCE));
+    this.data = Object.fromEntries(Object.values(STORAGE_KEYS).map(key => [key, []]));
+    this.data[STORAGE_KEYS.DRILLS_REF] = DRILLS_REFERENCE;
+    // Never read legacy localStorage credentials or export them to the new server.
   }
 
-  getItem(key) {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : [];
-  }
+  getItem(key) { return structuredClone(this.data[key] || []); }
 
   setItem(key, data) {
-    localStorage.setItem(key, JSON.stringify(data));
+    this.data[key] = structuredClone(data);
+    this.markDirty();
   }
 
-  // ── Members ──────────────────────────────────────────────
+  status(state, message) {
+    this.saveState = state;
+    window.dispatchEvent(new CustomEvent('store-status', { detail: { state, message } }));
+  }
+
+  markDirty() {
+    if (!this.currentUser) return;
+    this.changeVersion++;
+    this.status('saving', 'Saving your changes…');
+    clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => this.flush().catch(() => {}), 250);
+    window.dispatchEvent(new CustomEvent('store-change'));
+  }
+
+  async request(route, options = {}) {
+    let response;
+    try {
+      response = await fetch(route, { ...options, credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...options.headers }, signal: AbortSignal.timeout(15000) });
+    } catch (error) {
+      throw new Error('Cannot reach OneUp. Your unsaved changes are kept in this tab. Reconnect and retry before closing it.');
+    }
+    const data = await response.json().catch(() => ({}));
+    if (data.code === 'SESSION_EXPIRED') window.dispatchEvent(new CustomEvent('session-lost'));
+    if (!response.ok) throw new Error(data.error || 'Unable to complete your request.');
+    return data;
+  }
+
+  applySession(payload) {
+    this.init();
+    this.currentUser = payload.member;
+    this.data = { ...this.data, ...payload.state };
+    this.data[STORAGE_KEYS.MEMBERS] = [payload.member];
+    this.revision = payload.revision;
+    this.changeVersion = this.savedVersion = 0;
+    this.status('saved', 'All changes saved');
+    return this.getCurrentUser();
+  }
+
+  async registerAccount(fields) {
+    return this.applySession(await this.request('/api/auth/register', { method: 'POST', body: JSON.stringify(fields) }));
+  }
+
+  async loginAccount(identifier, password) {
+    return this.applySession(await this.request('/api/auth/login', { method: 'POST', body: JSON.stringify({ identifier, password }) }));
+  }
+
+  async restoreSession() {
+    const response = await fetch('/api/auth/session', { credentials: 'same-origin', signal: AbortSignal.timeout(15000) });
+    if (response.status === 401) { this.clearCurrentUser(); return null; }
+    if (!response.ok) throw new Error('Unable to restore your account. Please try again.');
+    return this.applySession(await response.json());
+  }
+
+  async flush() {
+    clearTimeout(this.saveTimer);
+    if (this.pendingSave) return this.pendingSave;
+    if (!this.currentUser || this.changeVersion === this.savedVersion) return;
+    this.pendingSave = (async () => {
+      try {
+        while (this.currentUser && this.changeVersion !== this.savedVersion) {
+          const version = this.changeVersion;
+          const state = Object.fromEntries(Object.entries(this.data).filter(([key]) => ![STORAGE_KEYS.MEMBERS, STORAGE_KEYS.DRILLS_REF, STORAGE_KEYS.CURRENT_USER, STORAGE_KEYS.APPS_SCRIPT_URL].includes(key)));
+          const response = await this.request('/api/state', { method: 'PUT', body: JSON.stringify({ member: this.currentUser, state, revision: this.revision }) });
+          this.revision = response.revision;
+          this.savedVersion = version;
+          if (this.changeVersion === version) {
+            this.currentUser = response.member;
+            this.data[STORAGE_KEYS.MEMBERS] = [response.member];
+          }
+        }
+        this.status('saved', 'All changes saved');
+      } catch (error) {
+        this.status('error', error.message);
+        throw error;
+      } finally { this.pendingSave = null; }
+    })();
+    return this.pendingSave;
+  }
+
+  async logoutAccount() {
+    await this.flush();
+    await this.request('/api/auth/logout', { method: 'POST', body: '{}' });
+    this.clearCurrentUser();
+  }
+
+  async deleteAccount(password) {
+    await this.request('/api/account', { method: 'DELETE', body: JSON.stringify({ password, memberId: this.currentUser?.MemberID }) });
+    this.clearCurrentUser();
+  }
+
+  exportData() {
+    return { exportedAt: new Date().toISOString(), member: this.getCurrentUser(), state: structuredClone(this.data), hasUnsavedChanges: this.changeVersion !== this.savedVersion };
+  }
+
   getMembers() { return this.getItem(STORAGE_KEYS.MEMBERS); }
-  getMemberById(id) { return this.getMembers().find(m => m.MemberID === id); }
+  getMemberById(id) { return this.getMembers().find(member => member.MemberID === id); }
 
   saveMember(member) {
-    const members = this.getMembers();
-    const idx = members.findIndex(m => m.MemberID === member.MemberID);
-    if (idx >= 0) members[idx] = member;
-    else members.push(member);
-    this.setItem(STORAGE_KEYS.MEMBERS, members);
-
-    const curr = this.getCurrentUser();
-    if (curr && curr.MemberID === member.MemberID) {
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(member));
-    }
+    if (!this.currentUser || member.MemberID !== this.currentUser.MemberID) return;
+    const { Password, password, ...safe } = member;
+    this.currentUser = safe;
+    this.setItem(STORAGE_KEYS.MEMBERS, [safe]);
   }
 
-  getCurrentUser() {
-    const data = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-    if (!data) return null;
-    const user = JSON.parse(data);
-    if (!user || !user.MemberID) return null;
-    return user;
-  }
-
-  setCurrentUser(member) {
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(member));
-  }
-
+  getCurrentUser() { return this.currentUser ? structuredClone(this.currentUser) : null; }
+  setCurrentUser(member) { if (this.currentUser?.MemberID === member?.MemberID) this.saveMember(member); }
   clearCurrentUser() {
-    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    clearTimeout(this.saveTimer);
+    this.currentUser = null;
+    this.init();
+    this.changeVersion = this.savedVersion = 0;
   }
 
   // ── Workouts ─────────────────────────────────────────────
@@ -167,7 +234,7 @@ class DataStore {
   addWorkoutLogsBatch(logArray) {
     const logs = this.getWorkoutLogs();
     logArray.forEach(log => {
-      log.LogID = log.LogID || 'L' + String(Date.now() + Math.floor(Math.random() * 1000)).slice(-7);
+      log.LogID = log.LogID || 'L' + crypto.randomUUID();
       logs.unshift(log);
       this.postToSheets('Workout Logs', log);
     });
@@ -193,31 +260,22 @@ class DataStore {
   }
 
   addWeightLog(memberId, weightKg, dateStr) {
+    if (!Number.isFinite(Number(weightKg)) || Number(weightKg) < 20 || Number(weightKg) > 350 || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || dateStr > localDate()) throw new Error('Enter a weight from 20 to 350 kg and a valid date.');
     const logs = this.getWeightLogs();
-    const memberLogs = logs.filter(l => l.MemberID === memberId).sort((a, b) => new Date(a.Date) - new Date(b.Date));
-
-    let lastWeight = memberLogs.length > 0 ? memberLogs[memberLogs.length - 1].WeightKg : weightKg;
-    let changeKg = parseFloat((weightKg - lastWeight).toFixed(1));
-
-    const newLog = {
-      LogID: 'W' + String(Date.now()).slice(-6),
-      Date: dateStr,
-      MemberID: memberId,
-      WeightKg: parseFloat(weightKg),
-      ChangeKg: changeKg
-    };
-
-    logs.unshift(newLog);
+    const existing = logs.find(row => row.MemberID === memberId && row.Date === dateStr);
+    const newLog = existing || { LogID: crypto.randomUUID(), Date: dateStr, MemberID: memberId };
+    newLog.WeightKg = Number(weightKg);
+    if (!existing) logs.push(newLog);
+    const ordered = logs.filter(row => row.MemberID === memberId).sort((a, b) => a.Date.localeCompare(b.Date));
+    ordered.forEach((row, index) => { row.ChangeKg = index ? +(row.WeightKg - ordered[index - 1].WeightKg).toFixed(1) : 0; });
+    logs.sort((a, b) => b.Date.localeCompare(a.Date));
     this.setItem(STORAGE_KEYS.WEIGHT_LOGS, logs);
-    this.postToSheets('Weight Logs', newLog);
-
     const member = this.getMemberById(memberId);
     if (member) {
-      member.WeightKg = parseFloat(weightKg);
+      member.WeightKg = ordered[ordered.length - 1].WeightKg;
       this.calculateBMI(member);
       this.saveMember(member);
     }
-
     return newLog;
   }
 
@@ -230,7 +288,7 @@ class DataStore {
 
   saveGoal(goal) {
     const goals = this.getGoals();
-    goal.GoalID = goal.GoalID || 'G' + String(Date.now()).slice(-6);
+    goal.GoalID = goal.GoalID || crypto.randomUUID();
     const idx = goals.findIndex(g => g.GoalID === goal.GoalID);
     if (idx >= 0) goals[idx] = goal;
     else goals.push(goal);
@@ -248,7 +306,7 @@ class DataStore {
 
   saveSkill(skill) {
     const skills = this.getSkills();
-    skill.SkillID = skill.SkillID || 'S' + String(Date.now()).slice(-6);
+    skill.SkillID = skill.SkillID || crypto.randomUUID();
     const idx = skills.findIndex(s => s.SkillID === skill.SkillID);
     if (idx >= 0) skills[idx] = skill;
     else skills.push(skill);
@@ -266,7 +324,7 @@ class DataStore {
     const member = this.getMemberById(memberId);
     if (!member) return null;
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = localDate();
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const logs = this.getAttendanceLogs();
 
@@ -274,7 +332,7 @@ class DataStore {
     if (existing) return existing;
 
     const newLog = {
-      LogID: 'A' + String(Date.now()).slice(-6),
+      LogID: crypto.randomUUID(),
       Date: todayStr,
       MemberID: memberId,
       FullName: member.FullName,
@@ -312,7 +370,7 @@ class DataStore {
 
   saveCustomDrill(drill) {
     const custom = this.getItem(STORAGE_KEYS.CUSTOM_DRILLS);
-    drill.DrillID = drill.DrillID || 'DR' + String(Date.now()).slice(-6);
+    drill.DrillID = drill.DrillID || crypto.randomUUID();
     drill.IsCustom = true;
     custom.push(drill);
     this.setItem(STORAGE_KEYS.CUSTOM_DRILLS, custom);
@@ -326,18 +384,13 @@ class DataStore {
   }
 
   getUpcomingSchedule() {
-    const schedules = this.getTrainingSchedules();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const upcoming = schedules
-      .filter(s => new Date(s.Date) >= today)
-      .sort((a, b) => new Date(a.Date) - new Date(b.Date));
-    return upcoming[0] || null;
+    return this.getTrainingSchedules().filter(row => row.Date >= localDate())
+      .sort((a, b) => a.Date.localeCompare(b.Date) || (a.CallTime || '').localeCompare(b.CallTime || ''))[0] || null;
   }
 
   saveTrainingSchedule(schedule) {
     const schedules = this.getTrainingSchedules();
-    schedule.ScheduleID = schedule.ScheduleID || 'SCH' + String(Date.now()).slice(-6);
+    schedule.ScheduleID = schedule.ScheduleID || crypto.randomUUID();
     schedules.unshift(schedule);
     this.setItem(STORAGE_KEYS.TRAINING_SCHEDULES, schedules);
     this.postToSheets('Training Schedules', schedule);
@@ -358,155 +411,15 @@ class DataStore {
     }
   }
 
-  // ── Google Sign-In ───────────────────────────────────────
-  loginWithGoogle(googleUserData) {
-    const members = this.getMembers();
-    let member = members.find(m => m.Email && m.Email.toLowerCase() === googleUserData.email.toLowerCase());
-
-    if (!member) {
-      member = {
-        MemberID: 'M' + String(members.length + 1).padStart(3, '0'),
-        Username: googleUserData.email.split('@')[0],
-        FullName: googleUserData.name || 'Varsity Athlete',
-        Rank: 'Rookie',
-        ProgramFocus: 'Whole Body',
-        Email: googleUserData.email,
-        ContactNumber: 'N/A',
-        DateJoined: new Date().toISOString().split('T')[0],
-        WeightKg: 0,
-        HeightCm: 0,
-        BMI: 0,
-        BMICategory: '--',
-        Status: 'Active',
-        Notes: 'Signed in via Google Account',
-        Avatar: ''
-      };
-      this.saveMember(member);
-      this.postToSheets('Members', member);
-    }
-
-    this.setCurrentUser(member);
-    return member;
-  }
-
-  // ── Google Sheets / Apps Script API ─────────────────────
-  getAppsScriptUrl() {
-    return localStorage.getItem(STORAGE_KEYS.APPS_SCRIPT_URL) || DEFAULT_APPS_SCRIPT_URL;
-  }
-
-  setAppsScriptUrl(url) {
-    localStorage.setItem(STORAGE_KEYS.APPS_SCRIPT_URL, url.trim());
-  }
-
-  async postToSheets(sheetName, record) {
-    const url = this.getAppsScriptUrl();
-    if (!url) return null;
-
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ sheet: sheetName, record: record })
-      });
-      const data = await res.json();
-      console.log(`[Sheets POST] ${sheetName}:`, data);
-      return data;
-    } catch (err) {
-      console.warn(`[Sheets POST] ${sheetName} sync error:`, err.message);
-      return null;
-    }
-  }
-
-  async fetchFromSheets(sheetName, filters = {}) {
-    const url = this.getAppsScriptUrl();
-    if (!url) return null;
-
-    try {
-      const params = new URLSearchParams({ sheet: sheetName, ...filters });
-      const res = await fetch(`${url}?${params.toString()}`);
-      const data = await res.json();
-      console.log(`[Sheets GET] ${sheetName}:`, data);
-      return data;
-    } catch (err) {
-      console.warn(`[Sheets GET] ${sheetName} fetch error:`, err.message);
-      return null;
-    }
-  }
-
-  /**
-   * Pull Members sheet from Sheets and merge into localStorage.
-   * Local data is overwritten by Sheets data for matching MemberIDs.
-   */
-  async syncMembersFromSheets() {
-    const data = await this.fetchFromSheets('Members');
-    if (!Array.isArray(data) || data.length === 0) return false;
-
-    const localMembers = this.getMembers();
-    data.forEach(sheetMember => {
-      if (!sheetMember.MemberID) return;
-      const idx = localMembers.findIndex(m => m.MemberID === sheetMember.MemberID);
-      if (idx >= 0) {
-        localMembers[idx] = { ...localMembers[idx], ...sheetMember };
-      } else {
-        localMembers.push(sheetMember);
-      }
-    });
-    this.setItem(STORAGE_KEYS.MEMBERS, localMembers);
-
-    // Refresh current user if exists
-    const curr = this.getCurrentUser();
-    if (curr) {
-      const updated = localMembers.find(m => m.MemberID === curr.MemberID);
-      if (updated) this.setCurrentUser(updated);
-    }
-
-    console.log('[Sheets SYNC] Members synced:', data.length, 'records');
-    return true;
-  }
-
-  /**
-   * Pull Attendance Logs from Sheets and merge.
-   */
-  async syncAttendanceFromSheets() {
-    const data = await this.fetchFromSheets('Attendance Logs');
-    if (!Array.isArray(data) || data.length === 0) return false;
-
-    const local = this.getAttendanceLogs();
-    data.forEach(sheetLog => {
-      if (!sheetLog.LogID) return;
-      const idx = local.findIndex(l => l.LogID === sheetLog.LogID);
-      if (idx >= 0) {
-        local[idx] = { ...local[idx], ...sheetLog };
-      } else {
-        local.unshift(sheetLog);
-      }
-    });
-    this.setItem(STORAGE_KEYS.ATTENDANCE, local);
-    console.log('[Sheets SYNC] Attendance synced:', data.length, 'records');
-    return true;
-  }
-
-  /**
-   * Pull Training Schedules from Sheets and merge.
-   */
-  async syncSchedulesFromSheets() {
-    const data = await this.fetchFromSheets('Training Schedules');
-    if (!Array.isArray(data) || data.length === 0) return false;
-
-    const local = this.getTrainingSchedules();
-    data.forEach(sheetSched => {
-      if (!sheetSched.ScheduleID) return;
-      const idx = local.findIndex(s => s.ScheduleID === sheetSched.ScheduleID);
-      if (idx >= 0) {
-        local[idx] = { ...local[idx], ...sheetSched };
-      } else {
-        local.unshift(sheetSched);
-      }
-    });
-    this.setItem(STORAGE_KEYS.TRAINING_SCHEDULES, local);
-    console.log('[Sheets SYNC] Schedules synced:', data.length, 'records');
-    return true;
-  }
+  // Legacy public Sheets endpoints are intentionally disabled. Account records never
+  // leave the same-origin authenticated API.
+  getAppsScriptUrl() { return ''; }
+  setAppsScriptUrl() { throw new Error('External sheet sync is unavailable. Use your private account export.'); }
+  async postToSheets() { return null; }
+  async fetchFromSheets() { return null; }
+  async syncMembersFromSheets() { return false; }
+  async syncAttendanceFromSheets() { return false; }
+  async syncSchedulesFromSheets() { return false; }
 }
 
 const store = new DataStore();

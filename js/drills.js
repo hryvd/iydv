@@ -5,7 +5,7 @@
 
 class DrillsModule {
   constructor() {
-    this.completedDrills = { 'Regular Drill': {}, 'Contemporary Drill': {} };
+    this.completedDrills = { 'Regular Drill': Object.create(null), 'Contemporary Drill': Object.create(null) };
     this.init();
   }
 
@@ -22,6 +22,15 @@ class DrillsModule {
   }
 
   bindModalEvents() {
+    document.addEventListener('change', event => {
+      const input = event.target.closest('[data-drill-index]');
+      if (!input) return;
+      const category = input.dataset.category;
+      const drill = store.getDrillsReference().filter(item => item.Category === category)[Number(input.dataset.drillIndex)];
+      if (!drill) return;
+      this.confirmDrillCompletion(category, drill.Name);
+      document.getElementById(input.id)?.focus();
+    });
     const form = document.getElementById('add-drill-form');
     if (form) {
       form.addEventListener('submit', (e) => {
@@ -41,7 +50,7 @@ class DrillsModule {
     if (!container) return;
 
     const user = store.getCurrentUser();
-    const canManage = isCoachOrOfficer(user);
+    const canManage = Boolean(user);
 
     const drills = store.getDrillsReference().filter(d => d.Category === categoryName);
 
@@ -69,16 +78,13 @@ class DrillsModule {
           const isCompleted = completed[drill.Name];
 
           return `
-            <div class="drill-checklist-card ${isCompleted ? 'drill-completed' : ''}"
-                 onclick="${isCompleted ? '' : `drillsModule.confirmDrillCompletion('${categoryName}', '${drill.Name.replace(/'/g, "\\'")}')`}"
-                 style="cursor:${isCompleted ? 'default' : 'pointer'}; ${isCompleted ? 'opacity:0.85;' : ''}">
-              <div class="drill-checklist-label">
-                <span class="drill-name">${drill.Name}${drill.IsCustom ? ' <span style="font-size:0.55rem;opacity:0.8;">★ CUSTOM</span>' : ''}</span>
-                <input type="checkbox" id="${inputId}" class="drill-checkbox" data-name="${drill.Name}" data-category="${categoryName}"
-                       ${isCompleted ? 'checked' : ''} onclick="event.preventDefault(); event.stopPropagation();" readonly>
-                <span class="custom-checkbox-ui">${isCompleted ? '' : ''}</span>
-              </div>
-            </div>
+            <label class="drill-checklist-card ${isCompleted ? 'drill-completed' : ''}" for="${inputId}" style="cursor:pointer;${isCompleted ? 'opacity:0.85;' : ''}">
+              <span class="drill-checklist-label">
+                <span class="drill-name">${escapeHTML(drill.Name)}${drill.IsCustom ? ' <span style="font-size:0.65rem;opacity:0.8;">Custom</span>' : ''}</span>
+                <input type="checkbox" id="${inputId}" class="drill-checkbox" data-drill-index="${index}" data-category="${categoryName}" ${isCompleted ? 'checked' : ''}>
+                <span class="custom-checkbox-ui" aria-hidden="true"></span>
+              </span>
+            </label>
           `;
         }).join('')}
 
@@ -96,13 +102,11 @@ class DrillsModule {
   }
 
   confirmDrillCompletion(categoryName, drillName) {
-    const confirmed = confirm(`Mark "${drillName}" as completed?`);
-    if (!confirmed) return;
-
     if (!this.completedDrills[categoryName]) {
-      this.completedDrills[categoryName] = {};
+      this.completedDrills[categoryName] = Object.create(null);
     }
-    this.completedDrills[categoryName][drillName] = true;
+    if (this.completedDrills[categoryName][drillName]) delete this.completedDrills[categoryName][drillName];
+    else this.completedDrills[categoryName][drillName] = true;
 
     const containerId = categoryName === 'Regular Drill' ? 'regular-drills-list' : 'contemporary-drills-list';
     this.renderDrillChecklist(containerId, categoryName);
@@ -116,62 +120,45 @@ class DrillsModule {
     const completedNames = Object.keys(completed);
 
     if (completedNames.length === 0) {
-      alert('Please complete at least one drill before submitting.');
+      app.notify('Select at least one completed drill.', 'error');
       return;
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = localDate();
     const logBatch = [];
 
     completedNames.forEach(drillName => {
       logBatch.push({
-        LogID: 'L' + String(Date.now() + Math.floor(Math.random() * 1000)).slice(-7),
+        LogID: 'L' + crypto.randomUUID(),
         Date: todayStr,
         MemberID: user.MemberID,
         Program: categoryName,
         Exercise: drillName,
-        'Set #': 1,
-        Reps: 15,
-        'Weight (lbs)': 0,
-        'RPE (1-10)': 8,
+        SetNum: 1,
+        Reps: 0,
+        WeightLbs: 0,
+        RPE: 0,
         Notes: `Completed in daily ${categoryName} checklist session`
       });
 
-      const existingSkill = store.getSkills(user.MemberID).find(s => s.SkillName === drillName);
-      if (!existingSkill) {
-        store.saveSkill({
-          SkillID: 'S' + String(Date.now() + Math.floor(Math.random() * 1000)).slice(-7),
-          MemberID: user.MemberID,
-          SkillName: drillName,
-          Category: categoryName,
-          DateLearned: todayStr,
-          ProficiencyLevel: 'Intermediate',
-          Coach: 'Varsity Routine',
-          Verified: true,
-          Notes: `Learned during varsity ${categoryName} practice`
-        });
-      }
     });
 
     store.addWorkoutLogsBatch(logBatch);
 
-    this.completedDrills[categoryName] = {};
+    this.completedDrills[categoryName] = Object.create(null);
 
     const containerId = categoryName === 'Regular Drill' ? 'regular-drills-list' : 'contemporary-drills-list';
     this.renderDrillChecklist(containerId, categoryName);
 
-    alert(`✅ ${logBatch.length} ${categoryName}(s) submitted and recorded!`);
+    app.notify(`${logBatch.length} completed drills logged.`, 'success');
 
-    if (window.app) app.renderPreviousWorkoutsList();
+    if (typeof app !== 'undefined') app.renderPreviousWorkoutsList();
   }
 
   // ── Add Drill (Coach/Officer) ──────────────────────────────
   openAddDrillModal(defaultCategory = 'Regular Drill') {
     const user = store.getCurrentUser();
-    if (!isCoachOrOfficer(user)) {
-      alert('Only coaches and officers can add drills.');
-      return;
-    }
+    if (!user) return;
 
     const catSelect = document.getElementById('add-drill-category');
     if (catSelect) catSelect.value = defaultCategory;
@@ -181,15 +168,15 @@ class DrillsModule {
 
   handleSaveDrill() {
     const user = store.getCurrentUser();
-    if (!isCoachOrOfficer(user)) return;
+    if (!user) return;
 
     const name = document.getElementById('add-item-name').value.trim();
     const category = document.getElementById('add-drill-category').value;
     const type = document.getElementById('add-drill-type').value.trim() || 'Custom';
     const notes = document.getElementById('add-item-notes').value.trim();
 
-    if (!name || !category) {
-      alert('Please fill in the drill name and category.');
+    if (!name || !category || name.length > 160 || type.length > 100 || notes.length > 1000) {
+      app.notify('Enter a drill name under 160 characters and shorter notes.', 'error');
       return;
     }
 
@@ -199,14 +186,15 @@ class DrillsModule {
       Type: type,
       Notes: notes,
       AddedBy: user.FullName,
-      DateAdded: new Date().toISOString().split('T')[0]
+      DateAdded: localDate()
     });
 
     app.closeModal('add-workout-drill-modal');
     document.getElementById('add-drill-form').reset();
     this.renderDrills();
 
-    alert(`✅ "${name}" added to ${category} catalog!`);
+    if (typeof gymModule !== 'undefined') gymModule.renderExerciseList();
+    app.notify(`${name} added to your personal catalog.`, 'success');
   }
 }
 

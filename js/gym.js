@@ -14,7 +14,7 @@ class GymModule {
     this.activeSetNumber = 1;
     this.activeTotalSets = 3;
     this.activeSetLogs = [];          // [{reps, weight, rpe}]
-    this.completedExercises = {};     // { exerciseName: [setLogs] }
+    this.completedExercises = Object.create(null);     // { exerciseName: [setLogs] }
 
     this.init();
   }
@@ -25,8 +25,15 @@ class GymModule {
 
   bindEvents() {
     document.addEventListener('click', (e) => {
+      const exerciseButton = e.target.closest('[data-exercise-index]');
+      if (exerciseButton) {
+        const index = Number(exerciseButton.dataset.exerciseIndex);
+        const exercise = this.visibleExercises?.[index];
+        if (exercise && !this.completedExercises[exercise.Name]) this.startExerciseSession(exercise.Name, index);
+      }
       if (e.target.closest('.program-select-btn')) {
         const btn = e.target.closest('.program-select-btn');
+        if (btn.dataset.program === this.currentProgram) return;
         document.querySelectorAll('.program-select-btn').forEach(b => {
           b.classList.remove('active', 'btn-primary');
           b.classList.add('btn-outline');
@@ -34,8 +41,12 @@ class GymModule {
         btn.classList.add('active', 'btn-primary');
         btn.classList.remove('btn-outline');
 
+        if (Object.keys(this.completedExercises).length && !confirm('Discard the unsubmitted exercises and change program?')) {
+          document.querySelectorAll('.program-select-btn').forEach(b => { b.classList.toggle('active', b.dataset.program === this.currentProgram); b.classList.toggle('btn-primary', b.dataset.program === this.currentProgram); b.classList.toggle('btn-outline', b.dataset.program !== this.currentProgram); });
+          return;
+        }
         this.currentProgram = btn.dataset.program;
-        this.completedExercises = {};
+        this.completedExercises = Object.create(null);
         this.renderExerciseList();
       }
     });
@@ -46,7 +57,7 @@ class GymModule {
     if (!listContainer) return;
 
     const user = store.getCurrentUser();
-    const canManage = isCoachOrOfficer(user);
+    const canManage = Boolean(user);
 
     let drills = store.getDrillsReference();
     let filtered = drills.filter(d => d.Category.toLowerCase().includes(this.currentProgram.toLowerCase()));
@@ -54,6 +65,7 @@ class GymModule {
       filtered = drills.filter(d => d.Category.includes('Gym'));
     }
 
+    this.visibleExercises = filtered;
     const completedCount = Object.keys(this.completedExercises).length;
 
     listContainer.innerHTML = `
@@ -73,22 +85,21 @@ class GymModule {
           : 'Tap to start';
 
         return `
-          <div class="card mb-2 gym-exercise-card ${isCompleted ? 'exercise-completed' : ''}"
-               onclick="${isCompleted ? '' : `gymModule.startExerciseSession('${item.Name.replace(/'/g, "\'")}', ${index})`}"
-               style="border-left: 4px solid ${isCompleted ? 'var(--green)' : 'var(--orange)'}; cursor:${isCompleted ? 'default' : 'pointer'};">
+          <button type="button" data-exercise-index="${index}" class="card mb-2 gym-exercise-card ${isCompleted ? 'exercise-completed' : ''}" ${isCompleted ? 'disabled' : ''}
+               style="width:100%;text-align:left;border-left:4px solid ${isCompleted ? 'var(--green)' : 'var(--orange)'};cursor:${isCompleted ? 'default' : 'pointer'};">
             <div class="d-flex justify-between align-center">
               <div style="flex:1;">
-                <div style="font-family:var(--font-display); font-weight:800; font-size:0.95rem; color:${isCompleted ? 'var(--green)' : 'var(--text-primary)'};">                  ${isCompleted ? '✅ ' : ''}${item.Name}${item.IsCustom ? ' <span style="font-size:0.55rem;opacity:0.7;">★ CUSTOM</span>' : ''}
+                <div style="font-family:var(--font-display); font-weight:800; font-size:0.95rem; color:${isCompleted ? 'var(--green)' : 'var(--text-primary)'};">                  ${isCompleted ? '✓ ' : ''}${escapeHTML(item.Name)}${item.IsCustom ? ' <span style="font-size:0.55rem;opacity:0.7;">★ CUSTOM</span>' : ''}
                 </div>
                 <div style="font-size:0.7rem; color:var(--text-tertiary);">
-                  ${isCompleted ? setsInfo : `${item.Type} • ${this.currentProgram}`}
+                  ${isCompleted ? setsInfo : `${escapeHTML(item.Type)} • ${escapeHTML(this.currentProgram)}`}
                 </div>
               </div>
               <div class="gym-exercise-checkbox ${isCompleted ? 'checked' : 'locked'}">
-                ${isCompleted ? '✓' : '🔒'}
+                ${isCompleted ? '✓' : '+'}
               </div>
             </div>
-          </div>
+          </button>
         `;
       }).join('')}
 
@@ -106,10 +117,7 @@ class GymModule {
 
   openAddWorkoutModal() {
     const user = store.getCurrentUser();
-    if (!isCoachOrOfficer(user)) {
-      alert('Only coaches and officers can add workouts.');
-      return;
-    }
+    if (!user) return;
     // Pre-select gym category
     const catSelect = document.getElementById('add-drill-category');
     if (catSelect) catSelect.value = `Gym - ${this.currentProgram}`;
@@ -118,6 +126,8 @@ class GymModule {
 
   // ── Start Active Workout Session for an Exercise ────────
   startExerciseSession(exerciseName, index) {
+    if (!store.getCurrentUser()) return;
+    clearInterval(this.restTimerInterval);
     this.activeExercise = { name: exerciseName, index };
     this.activeSetNumber = 1;
     this.activeTotalSets = 3;
@@ -140,7 +150,7 @@ class GymModule {
     container.innerHTML = `
       <div class="text-center mb-3">
         <div style="font-family:var(--font-display); font-weight:900; font-size:1.3rem; color:var(--crimson); text-transform:uppercase;">
-          ${this.activeExercise.name}
+          ${escapeHTML(this.activeExercise.name)}
         </div>
         <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">
           ${this.currentProgram} Program
@@ -192,15 +202,16 @@ class GymModule {
   }
 
   logCurrentSet() {
-    const reps = parseInt(document.getElementById('active-reps-input').value) || 0;
-    const weight = parseFloat(document.getElementById('active-weight-input').value) || 0;
+    if (!this.activeExercise) return;
+    const reps = Number(document.getElementById('active-reps-input').value);
+    const weight = Number(document.getElementById('active-weight-input').value);
 
-    if (reps <= 0) {
-      alert('Please enter a valid number of reps.');
+    if (!Number.isInteger(reps) || reps < 1 || reps > 1000 || !Number.isFinite(weight) || weight < 0 || weight > 2000) {
+      app.notify('Enter 1–1,000 reps and a weight between 0 and 2,000 lbs.', 'error');
       return;
     }
 
-    this.activeSetLogs.push({ reps, weight, rpe: 8 });
+    this.activeSetLogs.push({ reps, weight, rpe: 0 });
 
     if (this.activeSetNumber >= this.activeTotalSets) {
       // All sets completed — finish exercise
@@ -248,6 +259,7 @@ class GymModule {
   startInlineRestTimer(seconds) {
     clearInterval(this.restTimerInterval);
     this.restTimeRemaining = seconds;
+    const restEndsAt = Date.now() + seconds * 1000;
     const display = document.getElementById('inline-rest-countdown');
 
     const update = () => {
@@ -259,7 +271,7 @@ class GymModule {
     update();
 
     this.restTimerInterval = setInterval(() => {
-      this.restTimeRemaining--;
+      this.restTimeRemaining = Math.max(0, Math.ceil((restEndsAt - Date.now()) / 1000));
       update();
 
       if (this.restTimeRemaining <= 0) {
@@ -291,7 +303,7 @@ class GymModule {
     // Refresh the exercise list to show the filled checkbox
     this.renderExerciseList();
 
-    alert(`✅ ${this.activeExercise.name} completed!\n${this.activeSetLogs.length} set(s) logged.`);
+    app.notify(`${this.activeExercise.name}: ${this.activeSetLogs.length} sets ready. Submit your workout to save them.`, 'success');
 
     this.activeExercise = null;
     this.activeSetLogs = [];
@@ -318,26 +330,26 @@ class GymModule {
 
     const completedNames = Object.keys(this.completedExercises);
     if (completedNames.length === 0) {
-      alert('Please complete at least one exercise before submitting.');
+      app.notify('Complete at least one exercise before submitting.', 'error');
       return;
     }
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = localDate();
     const batchLogs = [];
 
     completedNames.forEach(exerciseName => {
       const sets = this.completedExercises[exerciseName];
       sets.forEach((s, i) => {
         batchLogs.push({
-          LogID: 'L' + String(Date.now() + Math.floor(Math.random() * 1000)).slice(-7),
+          LogID: 'L' + crypto.randomUUID(),
           Date: todayStr,
           MemberID: user.MemberID,
           Program: this.currentProgram,
           Exercise: exerciseName,
-          'Set #': i + 1,
+          SetNum: i + 1,
           Reps: s.reps,
-          'Weight (lbs)': s.weight,
-          'RPE (1-10)': s.rpe || 8,
+          WeightLbs: s.weight,
+          RPE: s.rpe || 0,
           Notes: `Completed in ${this.currentProgram} workout session`
         });
       });
@@ -345,12 +357,12 @@ class GymModule {
 
     store.addWorkoutLogsBatch(batchLogs);
 
-    alert(`🎉 WORKOUT SUBMITTED!\n${completedNames.length} exercise(s), ${batchLogs.length} total set(s) logged & synced to Sheets.`);
+    app.notify(`${completedNames.length} exercises and ${batchLogs.length} sets logged.`, 'success');
 
-    this.completedExercises = {};
+    this.completedExercises = Object.create(null);
     this.renderExerciseList();
 
-    if (window.app) app.renderPreviousWorkoutsList();
+    if (typeof app !== 'undefined') app.renderPreviousWorkoutsList();
   }
 
   // ── Legacy Rest Timer Modal (for other uses) ────────────
@@ -392,6 +404,7 @@ class GymModule {
   }
 
   playBeepSound() {
+    if (!window.AudioContext && !window.webkitAudioContext) return;
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
@@ -403,6 +416,7 @@ class GymModule {
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.5);
+      osc.onended = () => ctx.close();
     } catch (e) {
       console.log('Audio playback not supported:', e);
     }

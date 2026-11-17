@@ -1,269 +1,92 @@
-/* ==========================================================================
-   IYDV ONEUP - Coach / Officer Team Dashboard & Attendance Approvals
-   Role-based: Only coaches (Alumni) and officers (Team Captain) can approve
-   ========================================================================== */
-
+/* Private activity overview. Team administration is intentionally unavailable. */
 class DashboardModule {
   constructor() {
-    this.init();
-  }
-
-  init() {
-    this.bindEvents();
-  }
-
-  bindEvents() {
-    const saveScriptUrlBtn = document.getElementById('save-script-url-btn');
-    if (saveScriptUrlBtn) {
-      saveScriptUrlBtn.addEventListener('click', () => this.handleSaveScriptUrl());
-    }
-
-    const scheduleForm = document.getElementById('schedule-training-form');
-    if (scheduleForm) {
-      scheduleForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        this.handleSaveTrainingSchedule();
-      });
-    }
+    document.getElementById('save-script-url-btn')?.addEventListener('click', () => this.handleSaveScriptUrl());
+    document.getElementById('schedule-training-form')?.addEventListener('submit', e => {
+      e.preventDefault();
+      this.handleSaveTrainingSchedule();
+    });
   }
 
   renderTeamDashboard() {
-    const currentUser = store.getCurrentUser();
-    const canManage = isCoachOrOfficer(currentUser);
-
-    const members = store.getMembers();
-    const workouts = store.getWorkoutLogs();
-    const goals = store.getGoals();
-
-    const totalMembers = members.length;
-    const activeMembers = members.filter(m => m.Status === 'Active').length;
-    const totalSets = workouts.length;
-    const totalGoals = goals.length;
-    const goalsAchieved = goals.filter(g => g.Status === 'Achieved' || g.ProgressPct >= 100).length;
-    const goalRate = totalGoals > 0 ? Math.round((goalsAchieved / totalGoals) * 100) : 0;
-
-    const avgBmi = members.length > 0
-      ? (members.reduce((sum, m) => sum + (m.BMI || 0), 0) / members.length).toFixed(1)
-      : '--';
-
-    const metricsContainer = document.getElementById('team-metrics-grid');
-    if (metricsContainer) {
-      metricsContainer.className = 'stats-grid dashboard-grid mb-3';
-      metricsContainer.style.gridTemplateColumns = 'repeat(2, 1fr)';
-      metricsContainer.innerHTML = `
-        <div class="stat-box">
-          <div class="label">Active Roster</div>
-          <div class="value" style="color:var(--crimson);">${activeMembers} / ${totalMembers}</div>
-          <div class="sub-value">varsity dancers</div>
-        </div>
-        <div class="stat-box">
-          <div class="label">Total Sets Logged</div>
-          <div class="value" style="color:var(--orange);">${totalSets}</div>
-          <div class="sub-value">all-time sets</div>
-        </div>
-        <div class="stat-box">
-          <div class="label">Goals Achieved</div>
-          <div class="value" style="color:var(--green);">${goalsAchieved} (${goalRate}%)</div>
-          <div class="sub-value">${totalGoals} goals set</div>
-        </div>
-        <div class="stat-box">
-          <div class="label">Team Avg BMI</div>
-          <div class="value" style="color:var(--orange);">${avgBmi}</div>
-          <div class="sub-value">${avgBmi !== '--' ? 'Computed' : 'No data'}</div>
-        </div>
-      `;
+    const user = store.getCurrentUser();
+    if (!user) return;
+    const workouts = store.getWorkoutLogs(user.MemberID);
+    const goals = store.getGoals(user.MemberID);
+    const skills = store.getSkills(user.MemberID);
+    const achieved = goals.filter(g => {
+      const distance = Number(g.TargetValue) - Number(g.StartValue);
+      return distance !== 0 && (Number(g.CurrentValue) - Number(g.StartValue)) / distance >= 1;
+    }).length;
+    const metrics = document.getElementById('team-metrics-grid');
+    if (metrics) {
+      metrics.className = 'stats-grid dashboard-grid mb-3';
+      metrics.innerHTML = [
+        ['Training days', new Set(workouts.map(w => w.Date)).size, 'Days with a logged activity'],
+        ['Training entries', workouts.length, 'Your sets and completed activities'],
+        ['Goals reached', `${achieved} / ${goals.length}`, 'Based on your recorded progress'],
+        ['Skills learned', skills.length, 'Your personal skill journal']
+      ].map(([label, value, detail]) => `<div class="stat-box"><div class="label">${label}</div><div class="value">${value}</div><div class="sub-value">${detail}</div></div>`).join('');
     }
-
-    // Show schedule training button only for coaches/officers
-    const scheduleTrainingBtn = document.getElementById('schedule-training-btn');
-    if (scheduleTrainingBtn) {
-      scheduleTrainingBtn.style.display = canManage ? 'inline-flex' : 'none';
-    }
-
+    const profile = document.getElementById('team-roster-list');
+    if (profile) profile.innerHTML = `
+      <div class="list-item"><div><div class="list-title">${escapeHTML(user.FullName)}</div><div class="list-subtitle">${escapeHTML(user.Rank)} · ${escapeHTML(user.ProgramFocus || 'Whole Body')}</div></div><span class="badge badge-success">Your account</span></div>
+      <p style="font-size:0.8rem;color:var(--text-secondary);margin-top:12px;">Only your own training records appear here. Team rosters and coach approvals are not connected.</p>`;
     this.renderAttendanceApprovals();
-
-    const rosterContainer = document.getElementById('team-roster-list');
-    if (rosterContainer) {
-      if (members.length === 0) {
-        rosterContainer.innerHTML = `<div style="font-size:0.75rem; color:var(--text-tertiary); text-align:center; padding:12px;">No members registered yet.</div>`;
-      } else {
-        rosterContainer.innerHTML = members.map(m => `
-          <div class="list-item">
-            <div style="flex:1;">
-              <div class="list-title">${m.FullName} <small style="color:var(--text-tertiary);">(${m.MemberID})</small></div>
-              <div class="list-subtitle">${m.Rank} • ${m.ProgramFocus || 'Whole Body'} • ${m.WeightKg || '--'}kg / ${m.HeightCm || '--'}cm${m.BMI ? ` (BMI ${m.BMI})` : ''}</div>
-            </div>
-            <div>
-              <span class="badge ${m.Status === 'Active' ? 'badge-success' : 'badge-warning'}">${m.Status || 'Active'}</span>
-            </div>
-          </div>
-        `).join('');
-      }
-    }
   }
 
   renderAttendanceApprovals() {
     const container = document.getElementById('attendance-approvals-list');
-    if (!container) return;
-
-    const currentUser = store.getCurrentUser();
-    const canApprove = isCoachOrOfficer(currentUser);
-
-    const attendance = store.getAttendanceLogs();
-    if (attendance.length === 0) {
-      container.innerHTML = `<div style="font-size:0.75rem; color:var(--text-tertiary); text-align:center; padding:12px;">No attendance check-ins recorded.</div>`;
-      return;
-    }
-
-    container.innerHTML = attendance.map(att => {
-      let actionEl = '';
-
-      if (att.Status === 'Approved') {
-        actionEl = `<span class="badge badge-success">APPROVED BY ${this._esc(att.ApprovedBy || 'Admin')}</span>`;
-      } else if (canApprove) {
-        actionEl = `
-          <button class="btn btn-sm btn-primary" style="width:auto; padding:5px 12px; font-size:0.68rem;"
-                  onclick="dashboardModule.approveCheckin('${att.LogID}')">
-            ✓ APPROVE
-          </button>
-        `;
-      } else {
-        actionEl = `<span class="badge badge-warning">PENDING</span>`;
-      }
-
-      return `
-        <div class="list-item" style="border-left-color: ${att.Status === 'Approved' ? 'var(--green)' : 'var(--color-warning)'};">
-          <div style="flex:1;">
-            <div class="list-title">${this._esc(att.FullName)} (${att.MemberID})</div>
-            <div class="list-subtitle">Date: ${att.Date} &nbsp;•&nbsp; Time: ${att.Time}${att.ApprovedAt ? ` &nbsp;•&nbsp; Approved: ${att.ApprovedAt}` : ''}</div>
-          </div>
-          <div>${actionEl}</div>
-        </div>
-      `;
-    }).join('');
+    const user = store.getCurrentUser();
+    if (!container || !user) return;
+    const attendance = store.getAttendanceLogs().filter(a => a.MemberID === user.MemberID).sort((a, b) => String(b.Date).localeCompare(String(a.Date)));
+    container.innerHTML = attendance.length ? attendance.slice(0, 30).map(a => `
+      <div class="list-item"><div><div class="list-title">${escapeHTML(a.Date)}</div><div class="list-subtitle">Checked in at ${escapeHTML(a.Time || '—')}</div></div><span class="badge badge-primary">Self-reported</span></div>`).join('') : '<p style="color:var(--text-secondary);padding:12px 0;">No check-ins yet. Use today’s check-in on your overview to start your training habit.</p>';
   }
 
-  approveCheckin(logId) {
-    const currentUser = store.getCurrentUser();
-    if (!isCoachOrOfficer(currentUser)) {
-      alert('⚠️ Only coaches and officers can approve attendance.');
-      return;
-    }
-
-    const approverName = currentUser.FullName;
-    store.approveAttendance(logId, approverName);
-    this.renderAttendanceApprovals();
-    if (window.authModule) authModule.renderUserProfileCard();
-
-    alert(`✅ Attendance approved!\nRecorded as: Approved by ${approverName}`);
+  approveCheckin() {
+    app.notify('Coach approval is not connected. Check-ins are self-reported.', 'error');
   }
 
-  // ── Training Schedule ─────────────────────────────────────
   openScheduleModal() {
-    const currentUser = store.getCurrentUser();
-    if (!isCoachOrOfficer(currentUser)) {
-      alert('⚠️ Only coaches and officers can schedule training sessions.');
-      return;
+    if (!store.getCurrentUser()) return;
+    const dateInput = document.getElementById('sched-date');
+    if (dateInput) {
+      dateInput.min = localDate();
+      if (!dateInput.value) dateInput.value = localDate();
     }
     app.openModal('schedule-training-modal');
   }
 
   handleSaveTrainingSchedule() {
-    const currentUser = store.getCurrentUser();
-    if (!isCoachOrOfficer(currentUser)) return;
-
+    const user = store.getCurrentUser();
+    if (!user) return;
     const sessionName = document.getElementById('sched-session-name').value.trim();
     const date = document.getElementById('sched-date').value;
     const callTime = document.getElementById('sched-call-time').value;
     const venue = document.getElementById('sched-venue').value.trim();
     const notes = document.getElementById('sched-notes').value.trim();
-
-    if (!sessionName || !date) {
-      alert('Please fill in the session name and date.');
+    if (!sessionName || sessionName.length > 120 || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date < localDate() || venue.length > 200 || notes.length > 1000) {
+      app.notify('Enter a session name (up to 120 characters) and a date from today onward.', 'error');
       return;
     }
-
-    // Collect who's needed
-    const whoCheckboxes = document.querySelectorAll('.who-needed-chk:checked');
-    const whoNeeded = Array.from(whoCheckboxes).map(cb => cb.value);
-    if (whoNeeded.length === 0) whoNeeded.push('All Members');
-
-    const schedule = {
-      ScheduleID: 'SCH' + String(Date.now()).slice(-6),
-      SessionName: sessionName,
-      Date: date,
-      CallTime: callTime,
-      Venue: venue,
-      WhoNeeded: whoNeeded,
-      Notes: notes,
-      CreatedBy: currentUser.FullName,
-      CreatedAt: new Date().toISOString()
-    };
-
-    store.saveTrainingSchedule(schedule);
+    store.saveTrainingSchedule({
+      ScheduleID: 'SCH' + crypto.randomUUID(), SessionName: sessionName,
+      Date: date, CallTime: callTime, Venue: venue, WhoNeeded: ['You'], Notes: notes,
+      CreatedBy: user.FullName, CreatedAt: new Date().toISOString()
+    });
     app.closeModal('schedule-training-modal');
-
-    // Reset form
     document.getElementById('schedule-training-form').reset();
-
-    // Refresh all schedule panels
-    if (window.scheduleModule) scheduleModule.renderAllPanels();
-
-    alert(`📅 Training scheduled!\n"${sessionName}" on ${date}${callTime ? ' at ' + callTime : ''}${venue ? '\nVenue: ' + venue : ''}`);
+    if (typeof scheduleModule !== 'undefined') scheduleModule.renderAllPanels();
+    app.notify('Session added to your personal schedule.', 'success');
   }
 
-  // ── Sheets Config ─────────────────────────────────────────
   openSheetsConfigModal() {
-    const currentUrl = store.getAppsScriptUrl();
-    const input = document.getElementById('sheets-url-input');
-    if (input) input.value = currentUrl;
-    app.openModal('sheets-config-modal');
+    app.notify('Your records are saved privately to your account. External Sheets sync is not enabled.', 'error');
   }
 
-  handleSaveScriptUrl() {
-    const url = document.getElementById('sheets-url-input').value.trim();
-    if (!url) {
-      alert('Please enter a valid Apps Script Web App URL.');
-      return;
-    }
-    store.setAppsScriptUrl(url);
-    alert('✅ Google Apps Script Web App URL saved! Live sync is now enabled.');
-    app.closeModal('sheets-config-modal');
-  }
-
-  async testSheetsConnection() {
-    const url = document.getElementById('sheets-url-input').value.trim();
-    if (!url) {
-      alert('Please enter a Web App URL first.');
-      return;
-    }
-
-    try {
-      const res = await fetch(`${url}?sheet=Members`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          alert(`✅ Connection Successful!\nGoogle Sheets returned ${data.length} member record(s).`);
-        } else if (data.error) {
-          alert(`⚠️ Sheets API error: ${data.error}`);
-        } else {
-          alert(`✅ Connection Successful! Response received from Sheets API.`);
-        }
-      } else {
-        alert('⚠️ Endpoint returned non-200. Check deployment permissions.');
-      }
-    } catch (e) {
-      alert(`⚠️ Connection error: ${e.message}\nMake sure Apps Script is deployed as "Anyone" access.`);
-    }
-  }
-
-  _esc(str) {
-    if (!str) return '';
-    return String(str)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
+  handleSaveScriptUrl() { this.openSheetsConfigModal(); }
+  testSheetsConnection() { this.openSheetsConfigModal(); }
 }
 
 const dashboardModule = new DashboardModule();

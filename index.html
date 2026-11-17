@@ -6,107 +6,74 @@
   <title>IYDV ONEUP - Indak Yaman Dance Varsity Fitness & Training Tracker</title>
   <meta name="description" content="BatState-U Indak Yaman Dance Varsity — Fitness, Training & Performance Tracker for varsity athletes.">
   
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  
-  <!-- Lucide Icons CDN -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  
+  <meta name="theme-color" content="#141919">
+  <link rel="icon" href="assets/logo.png">
+  <script src="assets/lucide.min.js"></script>
   <!-- CSS Design System -->
   <link rel="stylesheet" href="css/styles.css">
 </head>
-<body>
+<body class="public-shell">
+  <a href="#main-content" class="skip-link">Skip to content</a>
+  <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
 
   <!-- Hidden Profile Photo File Upload Input -->
-  <input type="file" id="profile-photo-input" accept="image/*" style="display:none;">
+  <input type="file" id="profile-photo-input" accept="image/jpeg,image/png,image/webp" style="display:none;">
 
   <div class="app-viewport-wrapper">
     
-    <!-- App Header with Logo -->
+    <aside class="app-sidebar" aria-label="Workspace sidebar">
+      <button class="brand-wrapper" onclick="app.switchScreen('home-screen')" aria-label="OneUp home">
+        <img src="assets/logo.png" alt="" class="brand-logo-img">
+        <span class="brand-text-block"><span class="brand-title">ONEUP<span class="brand-dot">.</span></span><span class="brand-sub">INDAK YAMAN · BATSTATE-U</span></span>
+      </button>
+      <div class="workspace-label">YOUR WORKSPACE</div>
+      <nav class="desktop-nav" aria-label="Main navigation">
+        <button class="nav-item active" data-screen="home-screen"><i data-lucide="layout-grid"></i><span>Overview</span></button>
+        <button class="nav-item" data-screen="gym-screen"><i data-lucide="dumbbell"></i><span>Training</span></button>
+        <button class="nav-item" data-screen="jogging-screen"><i data-lucide="timer"></i><span>Interval timer</span></button>
+        <button class="nav-item" data-screen="goals-screen"><i data-lucide="chart-no-axes-combined"></i><span>My progress</span></button>
+        <button class="nav-item" data-screen="dashboard-screen"><i data-lucide="calendar-check-2"></i><span>Activity log</span></button>
+      </nav>
+      <div class="sidebar-note"><div class="sidebar-note-icon"><i data-lucide="flame"></i></div><strong>Show up. Level up.</strong><p>Small steps today.<br>Stronger performances tomorrow.</p><button onclick="reportsModule.openReportModal()">Your progress report <i data-lucide="arrow-up-right"></i></button></div>
+      <div class="sidebar-bottom"><button onclick="app.openModal('account-modal')"><i data-lucide="settings-2"></i> Account &amp; data</button><button onclick="authModule.logout()"><i data-lucide="log-out"></i> Sign out</button><span>BATSTATE-U · IYDV ONEUP</span></div>
+    </aside>
     <header class="app-header">
-      <div class="brand-wrapper" onclick="app.switchScreen('home-screen')">
-        <img src="assets/logo.png" alt="IYDV Logo" class="brand-logo-img" onerror="this.style.display='none'">
-        <div class="brand-text-block">
-          <span class="brand-title">IYDV ONEUP</span>
-          <span class="brand-sub">BATSTATE-U VARSITY</span>
-        </div>
-      </div>
-      <div class="header-actions">
-        <button class="icon-btn" id="schedule-training-btn" title="Schedule Training" onclick="dashboardModule.openScheduleModal()" style="display:none;">
-          <i data-lucide="calendar-plus"></i>
-        </button>
-        <button class="icon-btn" title="Team Dashboard" onclick="app.switchScreen('dashboard-screen')">
-          <i data-lucide="layout-dashboard"></i>
-        </button>
-        <button class="icon-btn" title="Google Sheets API Config" onclick="dashboardModule.openSheetsConfigModal()">
-          <i data-lucide="database"></i>
-        </button>
-        <button class="icon-btn" title="Sign Out" onclick="authModule.logout()">
-          <i data-lucide="log-out"></i>
-        </button>
-      </div>
+      <button class="mobile-brand" onclick="app.switchScreen('home-screen')">ONEUP<span>.</span></button>
+      <div class="header-breadcrumb">My workspace <i data-lucide="chevron-right"></i> <span id="page-title">Overview</span></div>
+      <div class="header-actions"><span id="save-status" class="save-status"><span></span> All changes saved</span><span class="header-divider"></span><span id="header-date"></span><button class="icon-btn" aria-label="Account and data" onclick="app.openModal('account-modal')"><i data-lucide="user-round"></i></button><button id="schedule-training-btn" hidden style="display:none"></button></div>
     </header>
 
     <!-- Main Content App Body -->
-    <main class="app-content">
+    <main id="main-content" class="app-content" tabindex="-1">
 
-      <!-- ================= WELCOME SCREEN ================= -->
       <section id="welcome-screen" class="screen welcome-screen active">
-        <div class="welcome-logo-section">
-          <img src="assets/logo.png" alt="IYDV Logo" class="welcome-logo-img" onerror="this.style.display='none'">
-          <div>
-            <h1 class="welcome-title">Welcome to <span>IYDV ONEUP</span></h1>
-            <p class="welcome-subtitle">BatState-U Indak Yaman Dance Varsity<br>Fitness, Training &amp; Performance Tracker</p>
-          </div>
-        </div>
-        
-        <div class="welcome-actions">
-          <button class="btn btn-egov egov-signin-btn">
-            <span class="egov-ph-icon">🇵🇭</span>
-            <span>Sign in with eGovPH SSO</span>
-          </button>
-          <button class="btn btn-google google-signin-btn">
-            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
-            Sign in with Google
-          </button>
-          <button class="btn btn-primary" onclick="app.switchScreen('login-screen')">LOGIN WITH USERNAME</button>
-          <button class="btn btn-outline" onclick="app.switchScreen('create-account-screen')">CREATE ACCOUNT</button>
-        </div>
+        <div class="welcome-story"><div class="welcome-wordmark">ONEUP<span>.</span></div><span class="eyebrow">THE INDAK YAMAN TRAINING COMPANION</span><h1>Every practice.<br>Every little win.<br><em>One level up.</em></h1><p>Your training, goals, and growth. Together in one space built for the way you move.</p><div class="welcome-pills"><span><i data-lucide="dumbbell"></i> Train with intention</span><span><i data-lucide="trending-up"></i> See your progress</span></div><div class="welcome-orbit" aria-hidden="true"><span>1</span><i></i></div><div class="welcome-caption">INDAK YAMAN DANCE VARSITY <span>BATSTATE-U</span></div></div>
+        <div class="welcome-entry"><img src="assets/logo.png" alt="Indak Yaman Dance Varsity" class="welcome-logo-img"><span class="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span><h2>A little better,<br>every day.</h2><p>Make room for your next personal best.</p><button class="btn btn-primary" data-screen="create-account-screen">Create your account <i data-lucide="arrow-right"></i></button><button class="btn btn-outline" data-screen="login-screen">Sign in to OneUp</button><div class="welcome-trust"><i data-lucide="lock-keyhole"></i> Private training records. Always yours.</div><button class="text-button" onclick="app.openModal('privacy-modal')">How we handle your data</button></div>
       </section>
 
       <!-- ================= LOGIN SCREEN ================= -->
-      <section id="login-screen" class="screen">
+      <section id="login-screen" class="screen"><a href="#welcome-screen" class="auth-back">← Back to OneUp</a>
         <div class="auth-card">
           <div class="auth-logo-header">
             <img src="assets/logo.png" alt="IYDV Logo" class="auth-logo-img" onerror="this.style.display='none'">
             <div class="auth-logo-text">
               <h2>IYDV OneUp</h2>
-              <p>Sign in to your varsity training account</p>
+              <p>Welcome back. Your next session is waiting.</p>
             </div>
           </div>
 
-          <button class="btn btn-egov egov-signin-btn mb-2">
-            <span class="egov-ph-icon">🇵🇭</span>
-            <span>Sign in with eGovPH SSO</span>
-          </button>
 
-          <button class="btn btn-google google-signin-btn mb-3">
-            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
-            Sign in with Google
-          </button>
 
           <form id="login-form">
             <div class="form-group">
-              <label class="form-label" for="login-username">Username or Institutional Email</label>
-              <input type="text" id="login-username" class="form-control" placeholder="e.g. hdimaano" required>
+              <label class="form-label" for="login-username">Username or email</label>
+              <input type="text" id="login-username" autocomplete="username" class="form-control" placeholder="e.g. hdimaano" required>
             </div>
 
             <div class="form-group">
               <label class="form-label" for="login-password">Password</label>
               <div class="input-with-icon">
-                <input type="password" id="login-password" class="form-control" placeholder="••••••••" required>
+                <input type="password" id="login-password" autocomplete="current-password" class="form-control" placeholder="••••••••" required>
                 <button type="button" class="input-icon-btn toggle-password-btn" data-target="login-password">
                   <i data-lucide="eye"></i>
                 </button>
@@ -123,52 +90,50 @@
       </section>
 
       <!-- ================= CREATE ACCOUNT SCREEN ================= -->
-      <section id="create-account-screen" class="screen">
+      <section id="create-account-screen" class="screen"><a href="#welcome-screen" class="auth-back">← Back to OneUp</a>
         <div class="auth-card">
           <div class="auth-logo-header">
             <img src="assets/logo.png" alt="IYDV Logo" class="auth-logo-img" onerror="this.style.display='none'">
             <div class="auth-logo-text">
               <h2>Create Account</h2>
-              <p>Register for IYDV OneUp</p>
+              <p>Build a training habit that stays with you.</p>
             </div>
           </div>
 
           <form id="create-account-form">
             <div class="form-group">
               <label class="form-label">Username *</label>
-              <input type="text" id="reg-username" class="form-control" placeholder="e.g. hdimaano" required>
+              <input type="text" id="reg-username" autocomplete="username" minlength="3" maxlength="40" pattern="[a-zA-Z0-9_.\-]+" class="form-control" placeholder="e.g. hdimaano" required>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Full Name (Last, First M.) *</label>
-              <input type="text" id="reg-fullname" class="form-control" placeholder="e.g., Dimaano, Harry V." required>
+              <label class="form-label">Full name *</label>
+              <input type="text" id="reg-fullname" autocomplete="name" maxlength="100" class="form-control" placeholder="e.g., Dimaano, Harry V." required>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Select Varsity Rank *</label>
+              <label class="form-label">Your experience</label>
               <select id="reg-rank" class="form-control" required>
                 <option value="Rookie">Rookie (1st Year / Trainee)</option>
                 <option value="Regular">Regular Member</option>
                 <option value="Veteran">Veteran Member</option>
-                <option value="Team Captain">Team Captain / Officer</option>
-                <option value="Alumni">Alumni / Coach</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label class="form-label">Institutional Email</label>
-              <input type="email" id="reg-email" class="form-control" placeholder="harry.dimaano@g.batstate-u.edu.ph">
+              <label class="form-label">Email address</label>
+              <input type="email" id="reg-email" autocomplete="email" maxlength="254" required class="form-control" placeholder="harry.dimaano@g.batstate-u.edu.ph">
             </div>
 
             <div class="form-group">
               <label class="form-label">Contact Number</label>
-              <input type="tel" id="reg-contact" class="form-control" placeholder="0917 000 0000">
+              <input type="tel" id="reg-contact" autocomplete="tel" maxlength="30" class="form-control" placeholder="0917 000 0000">
             </div>
 
             <div class="form-group">
-              <label class="form-label">Password * (Min 6 chars)</label>
+              <label class="form-label">Password * (at least 12 characters)</label>
               <div class="input-with-icon">
-                <input type="password" id="reg-password" class="form-control" placeholder="••••••••" required>
+                <input type="password" id="reg-password" minlength="12" maxlength="128" autocomplete="new-password" class="form-control" placeholder="••••••••" required>
                 <button type="button" class="input-icon-btn toggle-password-btn" data-target="reg-password">
                   <i data-lucide="eye"></i>
                 </button>
@@ -178,7 +143,7 @@
             <div class="form-group">
               <label class="form-label">Confirm Password *</label>
               <div class="input-with-icon">
-                <input type="password" id="reg-confirm-password" class="form-control" placeholder="••••••••" required>
+                <input type="password" id="reg-confirm-password" autocomplete="new-password" class="form-control" placeholder="••••••••" required>
                 <button type="button" class="input-icon-btn toggle-password-btn" data-target="reg-confirm-password">
                   <i data-lucide="eye"></i>
                 </button>
@@ -186,8 +151,8 @@
             </div>
 
             <div style="font-size: 0.7rem; color: var(--text-tertiary); margin-bottom: 14px; display:flex; gap:8px; align-items:flex-start;">
-              <input type="checkbox" id="reg-privacy-consent" required checked style="margin-top:2px;">
-              <label for="reg-privacy-consent">I consent to storing my athletic logs under <a href="#" onclick="app.openModal('privacy-modal'); return false;" style="color:var(--orange); font-weight:700;">RA 10173 Data Privacy Notice</a>.</label>
+              <input type="checkbox" id="reg-privacy-consent" required style="margin-top:2px;">
+              <label for="reg-privacy-consent">I have read the <a href="#" onclick="app.openModal('privacy-modal'); return false;" style="color:var(--orange); font-weight:700;">data privacy notice</a>.</label>
             </div>
 
             <button type="submit" class="btn btn-primary">CREATE ACCOUNT</button>
@@ -199,119 +164,25 @@
         </div>
       </section>
 
-      <!-- ================= HOMEPAGE SCREEN ================= -->
       <section id="home-screen" class="screen">
-        
-        <!-- Schedule Panel -->
-        <div id="schedule-panel-home"></div>
-
-        <!-- PROMINENT ATTENDANCE BUTTON AT TOP -->
-        <div id="top-attendance-banner" class="top-attendance-container">
-          <!-- Rendered dynamically by Auth Module -->
+        <div class="page-heading"><div><span class="eyebrow">A LITTLE PROGRESS, EVERY DAY</span><h1>Let's make moves<span class="heading-dot">.</span></h1><p>Welcome back, <span id="greeting-name">athlete</span>. Make today a step forward.</p></div><button class="btn btn-secondary compact" aria-label="Progress report" onclick="reportsModule.openReportModal()"><i data-lucide="download"></i> <span class="button-label">Progress report</span></button></div>
+        <div class="overview-top-grid">
+          <div class="training-hero"><div class="hero-copy"><span class="hero-label"><span></span> YOUR TRAINING, YOUR PACE</span><h2>Build strength.<br>Find your rhythm.</h2><p>A good performance starts with showing up.<br>Let's put in the work.</p><button class="btn btn-primary compact" data-screen="gym-screen" data-subtab="gym">Start training <i data-lucide="arrow-up-right"></i></button></div><div class="hero-art" aria-hidden="true"><div class="hero-ring ring-one"></div><div class="hero-ring ring-two"></div><div class="hero-ring ring-three"></div><div class="hero-one">1<span>UP</span></div><span class="art-caption">PROGRESS IS A PRACTICE</span></div></div>
+          <div class="card week-card"><div class="card-header"><h2 class="card-title">This week</h2><i data-lucide="calendar-days"></i></div><div class="week-number"><strong id="week-session-count">0</strong><span>active training days</span></div><div id="week-activity" class="week-activity" aria-label="Training activity this week"></div><p id="week-encouragement">Your next session is a fresh start.</p><div class="week-foot"><i data-lucide="sparkles"></i> Consistency is your superpower.</div></div>
         </div>
-
-        <!-- Athlete Profile Banner Card -->
-        <div id="user-profile-card" class="profile-card mb-3">
-          <!-- Rendered dynamically by Auth module -->
+        <div class="section-heading"><h2>Your daily toolkit</h2><span>A little structure. A lot of possibility.</span></div>
+        <div class="action-grid toolkit-grid">
+          <button class="action-tile" data-screen="gym-screen" data-subtab="drills"><span class="tile-icon"><i data-lucide="footprints"></i></span><span class="tile-text"><span class="tile-title">Practice drills</span><span class="tile-desc">Find your flow, one rep at a time</span></span><i data-lucide="arrow-up-right" class="tile-arrow"></i></button>
+          <button class="action-tile" data-screen="jogging-screen"><span class="tile-icon"><i data-lucide="timer"></i></span><span class="tile-text"><span class="tile-title">Interval timer</span><span class="tile-desc">Jog, sprint, recover. Repeat.</span></span><i data-lucide="arrow-up-right" class="tile-arrow"></i></button>
+          <button class="action-tile" onclick="weightModule.openWeightModal()"><span class="tile-icon"><i data-lucide="scale"></i></span><span class="tile-text"><span class="tile-title">Log your weight</span><span class="tile-desc">Check in with your progress</span></span><i data-lucide="arrow-up-right" class="tile-arrow"></i></button>
         </div>
-
-        <!-- Height / Weight / BMI Stat Grid -->
-        <div class="card mb-3">
-          <div class="stats-grid">
-            <div class="stat-box">
-              <div class="label">Weight (kg)</div>
-              <div id="user-weight-display" class="value">-- kg</div>
-              <div class="sub-value">Daily Log</div>
-            </div>
-            <div class="stat-box">
-              <div class="label">Height (cm)</div>
-              <div id="user-height-display" class="value">-- cm</div>
-              <div class="sub-value">Athletic</div>
-            </div>
-            <div class="stat-box">
-              <div class="label">BMI</div>
-              <div id="user-bmi-display" class="value">--</div>
-              <div id="user-bmi-category" class="sub-value">--</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tappable Previous Workouts Card -->
-        <div class="card mb-3">
-          <div class="card-header">
-            <div class="card-title">
-              <i data-lucide="history"></i> PREVIOUS WORKOUTS
-            </div>
-            <small style="font-size: 0.65rem; color: var(--text-tertiary);">Tap for details</small>
-          </div>
-          <div id="previous-workouts-container">
-            <!-- Rendered by App Router -->
-          </div>
-        </div>
-
-        <!-- Action Grid Tiles -->
-        <div class="action-grid mb-3">
-          <div class="action-tile" onclick="weightModule.openWeightModal()">
-            <div class="tile-icon"><i data-lucide="scale"></i></div>
-            <div>
-              <div class="tile-title">WEIGHT TODAY</div>
-              <div class="tile-desc">Log daily weight &amp; delta</div>
-            </div>
-          </div>
-
-          <div class="action-tile" data-screen="jogging-screen">
-            <div class="tile-icon"><i data-lucide="timer"></i></div>
-            <div>
-              <div class="tile-title">JOGGING</div>
-              <div class="tile-desc">Interval sprint protocol</div>
-            </div>
-          </div>
-
-          <div class="action-tile" data-screen="gym-screen" data-subtab="drills">
-            <div class="tile-icon"><i data-lucide="check-square"></i></div>
-            <div>
-              <div class="tile-title">REGULAR DRILLS</div>
-              <div class="tile-desc">Push ups, planks, squats</div>
-            </div>
-          </div>
-
-          <div class="action-tile" data-screen="gym-screen" data-subtab="drills">
-            <div class="tile-icon"><i data-lucide="zap"></i></div>
-            <div>
-              <div class="tile-title">CONTEMPORARY</div>
-              <div class="tile-desc">Dance cardio &amp; tiptoes</div>
-            </div>
-          </div>
-
-          <div class="action-tile" data-screen="goals-screen" data-subtab="goals">
-            <div class="tile-icon"><i data-lucide="target"></i></div>
-            <div>
-              <div class="tile-title">MY GOALS</div>
-              <div class="tile-desc">Strength &amp; weight targets</div>
-            </div>
-          </div>
-
-          <div class="action-tile" data-screen="goals-screen" data-subtab="skills">
-            <div class="tile-icon"><i data-lucide="award"></i></div>
-            <div>
-              <div class="tile-title">SKILLS LEARNED</div>
-              <div class="tile-desc">Technique proficiency</div>
-            </div>
-          </div>
-        </div>
-
-        <button class="btn btn-primary mb-3" data-screen="gym-screen" data-subtab="gym">
-          <i data-lucide="dumbbell"></i> GYM WORKOUTS LOG
-        </button>
-
-        <button class="btn btn-secondary" onclick="reportsModule.openReportModal()">
-          <i data-lucide="file-text"></i> DOWNLOAD PROGRESS REPORT
-        </button>
-
+        <div class="overview-bottom-grid"><div class="card recent-card"><div class="card-header"><h2 class="card-title">Recent training</h2><span class="small-pill">YOUR JOURNEY</span></div><div id="previous-workouts-container"></div></div><div class="card profile-summary"><div class="card-header"><h2 class="card-title">Athlete snapshot</h2><button class="text-button" onclick="authModule.openStatsModal()">Edit profile <i data-lucide="arrow-up-right"></i></button></div><div id="user-profile-card" class="profile-card"></div><div class="stats-grid"><div class="stat-box"><div class="label">Weight</div><div id="user-weight-display" class="value">— kg</div></div><div class="stat-box"><div class="label">Height</div><div id="user-height-display" class="value">— cm</div></div><div class="stat-box"><div class="label">BMI <span class="info-dot" title="BMI is a general reference, not a medical assessment.">ⓘ</span></div><div id="user-bmi-display" class="value">—</div><div id="user-bmi-category" class="sub-value">Not set</div></div></div></div></div>
+        <div id="schedule-panel-home"></div><div id="top-attendance-banner" class="top-attendance-container"></div>
+        <div class="workspace-footer"><span>Made for the work behind the performance.</span><button class="text-button" onclick="app.openModal('privacy-modal')"><i data-lucide="shield-check"></i> Your data &amp; privacy</button></div>
       </section>
 
       <!-- ================= TRAINING SCREEN (GYM & DRILLS) ================= -->
-      <section id="gym-screen" class="screen">
+      <section id="gym-screen" class="screen"><div class="page-heading"><div><span class="eyebrow">TRAIN WITH INTENTION</span><h1>Your next level starts here.</h1><p>Choose a routine. Log your sets. Make it count.</p></div></div>
         <!-- Schedule Panel -->
         <div id="schedule-panel-gym"></div>
 
@@ -367,7 +238,7 @@
       </section>
 
       <!-- ================= PROGRESS SCREEN (GOALS, SKILLS & WEIGHT) ================= -->
-      <section id="goals-screen" class="screen">
+      <section id="goals-screen" class="screen"><div class="page-heading"><div><span class="eyebrow">THE BIGGER PICTURE</span><h1>See how far you’ve come.</h1><p>Celebrate the small wins. Keep your next goal in sight.</p></div></div>
         <!-- Schedule Panel -->
         <div id="schedule-panel-goals"></div>
 
@@ -432,7 +303,7 @@
       </section>
 
       <!-- ================= JOGGING TIMER SCREEN ================= -->
-      <section id="jogging-screen" class="screen">
+      <section id="jogging-screen" class="screen"><div class="page-heading"><div><span class="eyebrow">MOVE AT YOUR PACE</span><h1>Find your rhythm.</h1><p>A simple interval timer for your next cardio session.</p></div></div>
         <div class="card mb-3">
           <div class="card-title mb-2">
             <i data-lucide="timer"></i> JOGGING INTERVAL TIMER
@@ -471,19 +342,16 @@
       </section>
 
       <!-- ================= COACH/OFFICER DASHBOARD SCREEN ================= -->
-      <section id="dashboard-screen" class="screen">
+      <section id="dashboard-screen" class="screen"><div class="page-heading"><div><span class="eyebrow">YOUR TRAINING JOURNAL</span><h1>Every session adds up.</h1><p>Your activity, check-ins, and training profile in one place.</p></div></div>
         <!-- Schedule Panel -->
         <div id="schedule-panel-dashboard"></div>
 
         <div class="card mb-3">
           <div class="card-header">
             <div class="card-title">
-              <i data-lucide="users"></i> TEAM DASHBOARD
+              <i data-lucide="users"></i> Your activity
             </div>
             <div style="display:flex; gap:6px; align-items:center;">
-              <button class="btn btn-sm btn-outline" onclick="dashboardModule.openSheetsConfigModal()" style="width:auto; padding:6px 10px; font-size:0.68rem;">
-                <i data-lucide="database"></i> Sync
-              </button>
             </div>
           </div>
           
@@ -495,7 +363,7 @@
         <div class="card mb-3">
           <div class="card-header">
             <div class="card-title">
-              <i data-lucide="calendar-check"></i> ATTENDANCE APPROVALS
+              <i data-lucide="calendar-check"></i> Your check-ins
             </div>
           </div>
           <div id="attendance-approvals-list">
@@ -504,7 +372,7 @@
         </div>
 
         <div class="card">
-          <div class="card-title mb-2">Varsity Athlete Roster</div>
+          <div class="card-title mb-2">Your training profile</div>
           <div id="team-roster-list">
             <!-- Rendered by Dashboard Module -->
           </div>
@@ -514,10 +382,10 @@
     </main>
 
     <!-- Bottom Navigation Bar -->
-    <nav class="app-nav">
+    <nav class="app-nav" aria-label="Mobile navigation">
       <button class="nav-item active" data-screen="home-screen">
         <i data-lucide="home"></i>
-        <span>Home</span>
+        <span>Overview</span>
       </button>
       <button class="nav-item" data-screen="gym-screen">
         <i data-lucide="dumbbell"></i>
@@ -533,21 +401,23 @@
 
   <!-- ================= MODALS ================= -->
 
+  <div id="account-modal" class="modal-overlay"><div class="modal-card"><div class="modal-header"><h2 class="modal-title">Account &amp; data</h2><button class="modal-close-btn" aria-label="Close">&times;</button></div><p class="muted mb-3">Your training story belongs to you. Export a copy of your records, or delete your account and all its records.</p><button class="btn btn-secondary mb-3" onclick="app.exportAccount()"><i data-lucide="download"></i> Export all my data</button><button class="btn btn-outline mb-3" onclick="authModule.logout()"><i data-lucide="log-out"></i> Sign out</button><button class="text-button mb-3" data-screen="dashboard-screen" onclick="app.closeModal('account-modal')">View my activity log <i data-lucide="arrow-up-right"></i></button><button class="text-button mb-3" onclick="store.flush().then(() => app.notify('All changes saved.')).catch(error => app.notify(error.message, 'error'))">Retry saving changes <i data-lucide="refresh-cw"></i></button><div class="danger-zone"><h3>Delete account</h3><p>This permanently removes your profile and training records. Export a copy first if you want to keep them.</p><button class="btn btn-outline danger-button" onclick="app.deleteAccount()">Delete my account</button></div></div></div>
+  <div id="delete-account-modal" class="modal-overlay"><div class="modal-card"><div class="modal-header"><h2 class="modal-title">Permanently delete account?</h2><button class="modal-close-btn" aria-label="Close dialog">&times;</button></div><p class="muted">This cannot be undone. All your training records will be removed. Enter your password to confirm.</p><form onsubmit="app.confirmDeleteAccount(event)"><p class="form-feedback" role="alert" hidden></p><div class="form-group"><label class="form-label" for="delete-password">Your password</label><input class="form-control" id="delete-password" name="password" type="password" autocomplete="current-password" required></div><button class="btn btn-outline danger-button" type="submit">Permanently delete my account</button></form></div></div>
   <!-- Modal: Edit Profile Stats -->
   <div id="edit-stats-modal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
         <div class="modal-title">Edit Athlete Profile</div>
-        <button class="modal-close-btn">&times;</button>
+        <button type="button" class="modal-close-btn" aria-label="Close dialog">&times;</button>
       </div>
       <form id="edit-stats-form">
         <div class="form-group">
           <label class="form-label">Body Weight (kg)</label>
-          <input type="number" step="0.1" id="edit-weight-input" class="form-control" required value="68.0">
+          <input type="number" step="0.1" id="edit-weight-input" min="20" max="350" class="form-control" required>
         </div>
         <div class="form-group">
           <label class="form-label">Height (cm)</label>
-          <input type="number" id="edit-height-input" class="form-control" required value="172">
+          <input type="number" id="edit-height-input" min="100" max="250" class="form-control" required>
         </div>
         <div class="form-group">
           <label class="form-label">Primary Program Focus</label>
@@ -592,7 +462,7 @@
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;" class="mb-3">
           <div>
             <label class="form-label" style="color:rgba(255,255,255,0.8);">Weight (kg)</label>
-            <input type="number" step="0.1" id="weight-kg-input" class="form-control" placeholder="68.0" required>
+            <input type="number" step="0.1" id="weight-kg-input" min="20" max="350" class="form-control" placeholder="68.0" required>
           </div>
           <div>
             <label class="form-label" style="color:rgba(255,255,255,0.8);">Date</label>
@@ -609,7 +479,7 @@
     <div class="modal-card">
       <div class="modal-header">
         <div class="modal-title">Create Training Goal</div>
-        <button class="modal-close-btn">&times;</button>
+        <button type="button" class="modal-close-btn" aria-label="Close dialog">&times;</button>
       </div>
       <form id="save-goal-form">
         <div class="form-group">
@@ -654,7 +524,7 @@
     <div class="modal-card">
       <div class="modal-header">
         <div class="modal-title">Log Learned Skill</div>
-        <button class="modal-close-btn">&times;</button>
+        <button type="button" class="modal-close-btn" aria-label="Close dialog">&times;</button>
       </div>
       <form id="save-skill-form">
         <div class="form-group">
@@ -699,7 +569,7 @@
     <div class="modal-card">
       <div class="modal-header">
         <div class="modal-title">Workout Session Details</div>
-        <button class="modal-close-btn">&times;</button>
+        <button type="button" class="modal-close-btn" aria-label="Close dialog">&times;</button>
       </div>
       <div id="workout-detail-content"></div>
     </div>
@@ -710,7 +580,7 @@
     <div class="modal-card" style="max-width:420px;">
       <div class="modal-header">
         <div class="modal-title">Athletic Progress Report</div>
-        <button class="modal-close-btn">&times;</button>
+        <button type="button" class="modal-close-btn" aria-label="Close dialog">&times;</button>
       </div>
 
       <div class="form-group mb-2">
@@ -737,48 +607,14 @@
     </div>
   </div>
 
-  <!-- Modal: Google Sheets API Config -->
-  <div id="sheets-config-modal" class="modal-overlay">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div class="modal-title">Google Sheets Backend API</div>
-        <button class="modal-close-btn">&times;</button>
-      </div>
-      <p style="font-size:0.72rem; color:var(--text-secondary); margin-bottom:12px;">
-        Connect your deployed Apps Script Web App URL to sync all athlete workouts, weights, goals, and skills directly into <strong style="color:var(--orange);">IYDV_OneUp_Member_Database.xlsx</strong>!
-      </p>
-
-      <div class="form-group">
-        <label class="form-label">Apps Script Web App URL</label>
-        <input type="url" id="sheets-url-input" class="form-control" placeholder="https://script.google.com/macros/s/.../exec">
-      </div>
-
-      <div class="d-flex gap-2 mb-3">
-        <button id="save-script-url-btn" class="btn btn-primary btn-sm">Save Endpoint URL</button>
-        <button onclick="dashboardModule.testSheetsConnection()" class="btn btn-outline btn-sm">Test API</button>
-      </div>
-
-      <div class="sheets-info-box">
-        <strong style="color:var(--text-primary);">How to Setup:</strong><br>
-        1. Open your Google Drive and upload <code>IYDV_OneUp_Member_Database.xlsx</code>.<br>
-        2. Open it in Google Sheets &rarr; Extensions &rarr; Apps Script.<br>
-        3. Copy the Apps Script code from the Excel "Apps Script (API)" tab.<br>
-        4. Click Deploy &rarr; New deployment &rarr; Web app (Execute as: Me, Access: Anyone).<br>
-        5. Paste the deployment URL above and click Save.
-      </div>
-    </div>
-  </div>
-
   <!-- Modal: Privacy Notice -->
   <div id="privacy-modal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
         <div class="modal-title">Data Privacy Notice</div>
-        <button class="modal-close-btn">&times;</button>
+        <button type="button" class="modal-close-btn" aria-label="Close dialog">&times;</button>
       </div>
-      <p style="font-size:0.78rem; color:var(--text-secondary); line-height:1.6;">
-        In compliance with the <strong style="color:var(--text-primary);">Data Privacy Act of 2012 (RA 10173)</strong> of the Philippines, the BatState-U Indak Yaman Dance Varsity collects physical stats (weight, height, BMI) and athletic logs solely for varsity strength &amp; conditioning tracking and coach evaluations. Your records are protected and stored in accordance with university athletic data privacy guidelines.
-      </p>
+      <div class="privacy-copy"><p>OneUp stores your profile, training logs, goals, skills, and check-ins in your account on this app’s server. Records are private to your signed-in account. No Google Sheets or government identity service receives your training data.</p><p>Weight, height, and BMI are optional training references, not medical advice. You can export your records or permanently delete your account in <strong>Account &amp; data</strong>.</p><p>Only use this app on a device you trust, and sign out on shared devices. The site operator is responsible for hosting security, backups, and handling privacy requests. This notice describes the app’s behavior; it does not claim university approval or legal certification.</p></div>
     </div>
   </div>
 
@@ -787,7 +623,7 @@
     <div class="modal-card" style="max-width:400px;">
       <div class="modal-header">
         <div class="modal-title">Active Workout Session</div>
-        <button class="modal-close-btn" onclick="gymModule.endExerciseSession()">&times;</button>
+        <button class="modal-close-btn" >&times;</button>
       </div>
       <div id="active-workout-content">
         <!-- Rendered dynamically by GymModule -->
@@ -795,15 +631,15 @@
     </div>
   </div>
 
-  <!-- Modal: Schedule Training Session (Coach/Officer Only) -->
+  <!-- Modal: Plan a session Session (Coach/Officer Only) -->
   <div id="schedule-training-modal" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
         <div class="modal-title" style="display:flex; align-items:center; gap:8px;">
           <i data-lucide="calendar-plus" style="width:18px;height:18px;color:var(--orange);"></i>
-          Schedule Training
+          Plan a session
         </div>
-        <button class="modal-close-btn">&times;</button>
+        <button type="button" class="modal-close-btn" aria-label="Close dialog">&times;</button>
       </div>
       <form id="schedule-training-form">
         <div class="form-group">
@@ -828,42 +664,12 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Who's Required</label>
-          <div class="who-needed-grid">
-            <label class="who-pill-label">
-              <input type="checkbox" class="who-needed-chk" value="All Members" checked>
-              <span class="who-pill-ui">All Members</span>
-            </label>
-            <label class="who-pill-label">
-              <input type="checkbox" class="who-needed-chk" value="Rookies">
-              <span class="who-pill-ui">Rookies</span>
-            </label>
-            <label class="who-pill-label">
-              <input type="checkbox" class="who-needed-chk" value="Regular Members">
-              <span class="who-pill-ui">Regular Members</span>
-            </label>
-            <label class="who-pill-label">
-              <input type="checkbox" class="who-needed-chk" value="Veterans">
-              <span class="who-pill-ui">Veterans</span>
-            </label>
-            <label class="who-pill-label">
-              <input type="checkbox" class="who-needed-chk" value="Officers">
-              <span class="who-pill-ui">Officers</span>
-            </label>
-            <label class="who-pill-label">
-              <input type="checkbox" class="who-needed-chk" value="Coaches">
-              <span class="who-pill-ui">Coaches</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="form-group">
           <label class="form-label">Notes / Instructions</label>
           <textarea id="sched-notes" class="form-control" rows="3" placeholder="Bring practice attire. Focus: technique run-through..."></textarea>
         </div>
 
         <button type="submit" class="btn btn-crimson">
-          <i data-lucide="calendar-check"></i> SAVE TRAINING SCHEDULE
+          <i data-lucide="calendar-check"></i> Save my session
         </button>
       </form>
     </div>
@@ -877,7 +683,7 @@
           <i data-lucide="plus-circle" style="width:18px;height:18px;color:var(--orange);"></i>
           Add Workout / Drill
         </div>
-        <button class="modal-close-btn">&times;</button>
+        <button type="button" class="modal-close-btn" aria-label="Close dialog">&times;</button>
       </div>
       <form id="add-drill-form">
         <div class="form-group">
@@ -919,167 +725,8 @@
     </div>
   </div>
 
-  <!-- ================= eGovPH SSO MODAL ================= -->
-  <div id="egov-sso-modal" class="modal-overlay">
-    <div class="modal-content egov-modal-box">
-      <div class="modal-header egov-modal-header">
-        <div class="egov-header-title">
-          <span class="ph-flag">🇵🇭</span>
-          <div>
-            <h3>eGovPH Single Sign-On</h3>
-            <p>Republic of the Philippines Official Gateway</p>
-          </div>
-        </div>
-        <button class="modal-close-btn close-egov-modal">&times;</button>
-      </div>
-
-      <div class="modal-body egov-modal-body">
-        <div id="egov-modal-spinner" class="egov-spinner-overlay" style="display:none;">
-          <div class="spinner"></div>
-          <div id="egov-modal-status-text">Connecting to eGovPH Gateway...</div>
-        </div>
-
-        <div class="egov-banner-notice mb-3">
-          <i data-lucide="shield-check" style="width:16px; height:16px; color:#FCD116;"></i>
-          <span>Official Philippines eGov SSO Authentication. Instant citizen verification with zero password creation required.</span>
-        </div>
-
-        <!-- Step 1: Mobile Number / Email Entry -->
-        <div id="egov-step-mobile" class="egov-step-block">
-          <form id="egov-mobile-step-form">
-            <div class="form-group mb-3">
-              <label class="form-label">Registered eGov Mobile Number / Email *</label>
-              <input type="text" id="egov-mobile-input" class="form-control" placeholder="e.g. +639090000001 or citizen@example.com" required>
-              <small class="form-text" style="color:var(--text-tertiary); font-size:0.7rem; margin-top:4px; display:block;">
-                Enter your eGovPH registered mobile number (+63 format) or institutional email.
-              </small>
-            </div>
-            <button type="submit" class="btn btn-egov w-100">
-              <i data-lucide="send" style="width:16px; height:16px;"></i> GENERATE & SEND OTP
-            </button>
-          </form>
-        </div>
-
-        <!-- Step 2: OTP Verification -->
-        <div id="egov-step-otp" class="egov-step-block" style="display:none;">
-          <form id="egov-otp-step-form">
-            <div class="egov-step-header mb-3" style="background:rgba(255,255,255,0.04); padding:10px 12px; border-radius:10px; border-left:3px solid #FCD116;">
-              <div style="font-size:0.78rem; font-weight:700; color:#FFF;" id="egov-otp-target-display">OTP code sent</div>
-              <div style="font-size:0.7rem; color:var(--text-tertiary);">Check your mobile SMS or email inbox (Sandbox OTP: 123456)</div>
-            </div>
-            <div class="form-group mb-3">
-              <label class="form-label">Enter 6-Digit OTP Code *</label>
-              <input type="text" id="egov-otp-code-input" class="form-control text-center" placeholder="123456" maxlength="6" style="letter-spacing:4px; font-size:1.1rem; font-weight:800;" required>
-            </div>
-            <div style="display:flex; gap:8px;">
-              <button type="button" class="btn btn-outline btn-sm" onclick="egovSSO.resetModalFlow()" style="flex:1;">CHANGE NUMBER</button>
-              <button type="submit" class="btn btn-egov" style="flex:2;">VALIDATE OTP CODE</button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Step 3: eGov PIN Authentication -->
-        <div id="egov-step-pin" class="egov-step-block" style="display:none;">
-          <form id="egov-pin-step-form">
-            <div class="egov-step-header mb-3" style="background:rgba(48,209,88,0.12); padding:10px 12px; border-radius:10px; border-left:3px solid #30D158;">
-              <div style="font-size:0.78rem; font-weight:700; color:#30D158;">✓ OTP Code Verified Successfully</div>
-              <div style="font-size:0.7rem; color:var(--text-tertiary);">Enter your 6-digit eGov PIN to complete authentication (Sandbox PIN: 000000)</div>
-            </div>
-            <div class="form-group mb-3">
-              <label class="form-label">Enter 6-Digit eGov PIN *</label>
-              <input type="password" id="egov-pin-code-input" class="form-control text-center" placeholder="••••••" maxlength="6" style="letter-spacing:6px; font-size:1.2rem;" required>
-            </div>
-            <button type="submit" class="btn btn-egov w-100">
-              <i data-lucide="shield-check" style="width:16px; height:16px;"></i> VERIFY PIN & SIGN IN
-            </button>
-          </form>
-        </div>
-
-        <div class="egov-divider"><span>PASTE EXCHANGE CODE</span></div>
-
-        <!-- Manual Exchange Code Form -->
-        <form id="egov-manual-exchange-form" class="mt-2">
-          <div class="form-group mb-2">
-            <input type="text" id="egov-exchange-code-input" class="form-control" placeholder="Paste single-use exchange_code here...">
-          </div>
-          <button type="submit" class="btn btn-outline btn-sm w-100" style="border-color:rgba(255,255,255,0.2);">EXCHANGE TOKEN & SIGN IN</button>
-        </form>
-
-        <!-- eGov Widget Fallback Container -->
-        <div id="egov-login" class="mt-3"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ================= eGov Varsity Onboarding Modal ================= -->
-  <div id="egov-onboarding-modal" class="modal-overlay">
-    <div class="modal-content egov-modal-box">
-      <div class="modal-header egov-modal-header">
-        <div class="egov-header-title">
-          <span class="ph-flag">🇵🇭</span>
-          <div>
-            <h3>Complete Varsity Profile</h3>
-            <p>eGovPH Verified Registration</p>
-          </div>
-        </div>
-        <button class="modal-close-btn close-onboarding-modal">&times;</button>
-      </div>
-
-      <div class="modal-body egov-modal-body">
-        <div class="egov-banner-notice mb-3" style="background:rgba(48,209,88,0.12); border-color:rgba(48,209,88,0.4);">
-          <i data-lucide="check-circle" style="width:20px; height:20px; color:#30D158; flex-shrink:0;"></i>
-          <div>
-            <strong style="color:#30D158;" id="egov-onboarding-name">Citizen Name</strong>
-            <div style="font-size:0.7rem; color:var(--text-tertiary);" id="egov-onboarding-meta">Verified via eGovPH SSO</div>
-          </div>
-        </div>
-
-        <form id="egov-onboarding-form">
-          <div class="form-group mb-3">
-            <label class="form-label">Select Varsity Rank / Position *</label>
-            <select id="egov-onboard-rank" class="form-control" required>
-              <option value="Rookie">Rookie (1st Year / Trainee)</option>
-              <option value="Regular" selected>Regular Member</option>
-              <option value="Veteran">Veteran Member</option>
-              <option value="Team Captain">Team Captain / Officer</option>
-              <option value="Alumni">Alumni / Coach</option>
-            </select>
-          </div>
-
-          <div class="form-group mb-3">
-            <label class="form-label">Program Focus *</label>
-            <select id="egov-onboard-program" class="form-control" required>
-              <option value="Whole Body" selected>Whole Body</option>
-              <option value="Upper Body Push">Upper Body Push</option>
-              <option value="Upper Body Pull">Upper Body Pull</option>
-              <option value="Legs & Lower">Legs & Lower</option>
-              <option value="Cardio & Plyo">Cardio & Plyo</option>
-              <option value="Dance Conditioning">Dance Conditioning</option>
-            </select>
-          </div>
-
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;" class="mb-3">
-            <div class="form-group">
-              <label class="form-label">Weight (kg) *</label>
-              <input type="number" id="egov-onboard-weight" class="form-control" value="65" min="20" max="250" step="0.5" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Height (cm) *</label>
-              <input type="number" id="egov-onboard-height" class="form-control" value="170" min="100" max="250" step="1" required>
-            </div>
-          </div>
-
-          <button type="submit" class="btn btn-egov w-100 mt-2">
-            <i data-lucide="sparkles" style="width:16px; height:16px;"></i> CREATE ACCOUNT & GO TO DASHBOARD
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-
   <!-- JavaScript Application Modules -->
   <script src="js/api.js"></script>
-  <script src="js/egov.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/gym.js"></script>
   <script src="js/weight.js"></script>
@@ -1091,7 +738,6 @@
   <script src="js/dashboard.js"></script>
   <script src="js/schedule.js"></script>
   <script src="js/app.js"></script>
-  <script src="https://widgets.e.gov.ph/v1.0.0/egov-login.min.js" onerror="console.warn('eGov Widget Script CDN fallback active')"></script>
 
 </body>
 </html>

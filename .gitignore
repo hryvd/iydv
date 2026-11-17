@@ -10,3 +10,9 @@ xlsx_dump.txt
 .DS_Store
 Thumbs.db
 
+
+# Private server data and validation artifacts
+.data/
+artifacts/
+.env.*
+!.env.example

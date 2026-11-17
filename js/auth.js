@@ -1,402 +1,274 @@
-/* ==========================================================================
-   IYDV ONEUP - Auth, Profile & Photo Upload Module
-   Sheets sync on login, role-aware rendering
-   ========================================================================== */
-
+/* Account forms and athlete profile. Authentication is owned by the server. */
 class AuthModule {
   constructor() {
-    this.init();
-  }
-
-  init() {
-    this.bindEvents();
-  }
-
-  bindEvents() {
-    document.addEventListener('click', (e) => {
-      if (e.target.closest('.toggle-password-btn')) {
-        const btn = e.target.closest('.toggle-password-btn');
-        const targetId = btn.dataset.target;
-        const input = document.getElementById(targetId);
+    document.addEventListener('click', (event) => {
+      const toggle = event.target.closest('.toggle-password-btn');
+      if (toggle) {
+        const input = document.getElementById(toggle.dataset.target);
         if (input) {
-          const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
-          input.setAttribute('type', type);
-          btn.innerHTML = type === 'password'
-            ? `<i data-lucide="eye"></i>`
-            : `<i data-lucide="eye-off"></i>`;
-          if (window.lucide) lucide.createIcons();
+          const visible = input.type === 'password';
+          input.type = visible ? 'text' : 'password';
+          toggle.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
+          toggle.setAttribute('aria-pressed', String(visible));
+          toggle.innerHTML = `<i data-lucide="${visible ? 'eye-off' : 'eye'}"></i>`;
+          app.refreshIcons();
         }
       }
-
-      if (e.target.closest('.google-signin-btn')) {
-        this.handleGoogleSignIn();
-      }
-
-      if (e.target.closest('.trigger-avatar-upload')) {
-        const fileInput = document.getElementById('profile-photo-input');
-        if (fileInput) fileInput.click();
+      if (event.target.closest('.trigger-avatar-upload')) {
+        document.getElementById('profile-photo-input')?.click();
       }
     });
-
-    document.addEventListener('change', (e) => {
-      if (e.target.id === 'profile-photo-input') {
-        this.handlePhotoUpload(e.target);
-      }
+    document.getElementById('profile-photo-input')?.addEventListener('change', (event) => {
+      this.handlePhotoUpload(event.target);
     });
-
-    const createAccForm = document.getElementById('create-account-form');
-    if (createAccForm) {
-      createAccForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        this.handleRegister();
+    for (const [id, method] of [
+      ['create-account-form', 'handleRegister'],
+      ['login-form', 'handleLogin'],
+      ['edit-stats-form', 'handleSaveStats']
+    ]) {
+      document.getElementById(id)?.addEventListener('submit', (event) => {
+        event.preventDefault();
+        this[method]();
       });
     }
+  }
 
-    const loginForm = document.getElementById('login-form');
-    if (loginForm) {
-      loginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        this.handleLogin();
-      });
+  showError(form, message) {
+    let feedback = form.querySelector('.form-feedback');
+    if (!feedback) {
+      feedback = document.createElement('p');
+      feedback.className = 'form-feedback';
+      feedback.setAttribute('role', 'alert');
+      feedback.tabIndex = -1;
+      form.prepend(feedback);
     }
+    feedback.textContent = message;
+    feedback.hidden = !message;
+    if (message) feedback.focus();
+  }
 
-    const editStatsForm = document.getElementById('edit-stats-form');
-    if (editStatsForm) {
-      editStatsForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        this.handleSaveStats();
-      });
+  async submit(formId, label, action) {
+    const form = document.getElementById(formId);
+    const button = form?.querySelector('button[type="submit"]');
+    if (!form || !button || button.disabled) return;
+    this.showError(form, '');
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = label;
+    button.setAttribute('aria-busy', 'true');
+    try {
+      await action();
+    } catch (error) {
+      this.showError(form, error.message || 'Something went wrong. Please try again.');
+    } finally {
+      button.disabled = false;
+      button.textContent = originalLabel;
+      button.removeAttribute('aria-busy');
     }
+  }
+
+  resetTrainingDrafts() {
+    if (typeof gymModule !== 'undefined') {
+      gymModule.completedExercises = Object.create(null);
+      gymModule.activeExercise = null;
+      gymModule.activeSetLogs = [];
+      clearInterval(gymModule.restTimerInterval);
+    }
+    if (typeof drillsModule !== 'undefined') {
+      drillsModule.completedDrills = { 'Regular Drill': Object.create(null), 'Contemporary Drill': Object.create(null) };
+    }
+    if (typeof joggingModule !== 'undefined') joggingModule.resetTimer();
+  }
+
+  enterApp(message) {
+    this.resetTrainingDrafts();
+    this.renderUserProfileCard();
+    app.switchScreen('home-screen');
+    if (typeof scheduleModule !== 'undefined') scheduleModule.renderAllPanels();
+    if (message) app.notify(message, 'success');
+  }
+
+  handleRegister() {
+    return this.submit('create-account-form', 'Creating your account…', async () => {
+      const value = (id) => document.getElementById(id).value.trim();
+      const username = value('reg-username');
+      const fullName = value('reg-fullname');
+      const password = document.getElementById('reg-password').value;
+      const confirmation = document.getElementById('reg-confirm-password').value;
+      if (!/^[a-zA-Z0-9_.-]{3,40}$/.test(username)) {
+        throw new Error('Use 3–40 letters, numbers, dots, underscores or hyphens for your username.');
+      }
+      if (fullName.length < 2 || fullName.length > 100) {
+        throw new Error('Enter your full name using 2–100 characters.');
+      }
+      if (password.length < 12 || password.length > 128) throw new Error('Choose a password with 12–128 characters.');
+      if (password !== confirmation) throw new Error('The passwords do not match. Please check them.');
+      if (!document.getElementById('reg-privacy-consent').checked) {
+        throw new Error('Read and accept the privacy notice to continue.');
+      }
+      await store.registerAccount({
+        username,
+        fullName,
+        email: value('reg-email'),
+        contact: value('reg-contact'),
+        password,
+        rank: value('reg-rank')
+      });
+      document.getElementById('create-account-form').reset();
+      this.enterApp('Your account is ready. Let’s make progress.');
+    });
+  }
+
+  handleLogin() {
+    return this.submit('login-form', 'Signing in…', async () => {
+      const identifier = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
+      if (!identifier || !password) throw new Error('Enter your username or email and password.');
+      await store.loginAccount(identifier, password);
+      document.getElementById('login-form').reset();
+      this.enterApp('Welcome back. Your training is ready.');
+    });
   }
 
   renderUserProfileCard() {
     const user = store.getCurrentUser();
     if (!user) return;
+    const name = String(user.FullName || user.Username || 'Athlete');
+    const initials = name.split(/[\s,]+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase();
+    const avatar = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(user.Avatar || '')
+      ? `<img src="${user.Avatar}" alt="" class="profile-avatar">`
+      : `<span class="profile-avatar profile-avatar-initials" aria-hidden="true">${escapeHTML(initials)}</span>`;
+    const greeting = document.getElementById('greeting-name');
+    if (greeting) greeting.textContent = name.includes(',') ? name.split(',')[1].trim().split(' ')[0] : name.split(' ')[0];
 
-    const avatarSrc = user.Avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.Username}`;
-    const canManage = isCoachOrOfficer(user);
-
-    // Attendance Status Today
-    const todayStr = new Date().toISOString().split('T')[0];
-    const attendanceLogs = store.getAttendanceLogs();
-    const userAttToday = attendanceLogs.find(a => a.MemberID === user.MemberID && a.Date === todayStr);
-
-    const topAttBanner = document.getElementById('top-attendance-banner');
-    if (topAttBanner) {
-      if (!userAttToday) {
-        topAttBanner.innerHTML = `
-          <button class="btn btn-primary top-attendance-btn" onclick="authModule.handleAttendanceCheckin()">
-            <i data-lucide="map-pin"></i> MARK ATTENDANCE PRESENT
-          </button>
-        `;
-      } else if (userAttToday.Status === 'Approved') {
-        topAttBanner.innerHTML = `
-          <div class="top-attendance-status status-approved">
-            <i data-lucide="check-circle-2"></i> ATTENDANCE VERIFIED PRESENT TODAY (${userAttToday.Time})
-          </div>
-        `;
-      } else {
-        topAttBanner.innerHTML = `
-          <div class="top-attendance-status status-pending">
-            <i data-lucide="clock"></i> ATTENDANCE SUBMITTED — PENDING APPROVAL
-          </div>
-        `;
-      }
+    const today = store.getAttendanceLogs().find((log) => log.MemberID === user.MemberID && log.Date === localDate());
+    const banner = document.getElementById('top-attendance-banner');
+    if (banner) {
+      banner.innerHTML = today
+        ? `<div class="top-attendance-status ${today.Status === 'Approved' ? 'status-approved' : 'status-pending'}"><i data-lucide="check-circle-2"></i><span>Checked in today <span class="attendance-time">${escapeHTML(today.Time || '')}</span></span></div>`
+        : `<button class="btn top-attendance-btn" onclick="authModule.handleAttendanceCheckin()"><i data-lucide="calendar-check"></i><span>Ready for today? <strong>Check in</strong></span><i data-lucide="arrow-up-right"></i></button>`;
     }
 
-    const profileCardEl = document.getElementById('user-profile-card');
-    if (profileCardEl) {
-      store.calculateBMI(user);
-
-      const roleLabel = user.Rank === 'Alumni' ? 'COACH' : user.Rank === 'Team Captain' ? 'OFFICER' : null;
-
-      profileCardEl.innerHTML = `
+    store.calculateBMI(user);
+    const card = document.getElementById('user-profile-card');
+    if (card) {
+      card.innerHTML = `
         <div class="profile-card-content">
-          <div class="profile-avatar-wrapper trigger-avatar-upload" title="Click to upload profile photo">
-            <img src="${avatarSrc}" alt="${user.FullName}" class="profile-avatar" />
-            <div class="avatar-camera-badge">
-              <i data-lucide="camera" style="width: 12px; height: 12px; stroke-width: 2.5;"></i>
-            </div>
-            <span class="rank-badge">${user.Rank || 'ROOKIE'}</span>
-          </div>
-
+          <button class="profile-avatar-wrapper profile-avatar-button trigger-avatar-upload" aria-label="Change profile photo">
+            ${avatar}<span class="avatar-camera-badge"><i data-lucide="camera"></i></span>
+          </button>
           <div class="profile-details-block">
-            <h2 class="profile-name-text">
-              ${user.FullName}
-              ${user.eGovVerified ? `<span class="egov-verified-badge" title="Verified Philippine Citizen via eGovPH SSO"><i data-lucide="shield-check"></i> eGovPH Verified</span>` : ''}
-            </h2>
-            <div class="profile-sub-text">ID: <strong>${user.MemberID}</strong> &nbsp;•&nbsp; ${user.ProgramFocus || 'Whole Body'}</div>
-
-            <div class="profile-badges-row" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">
-              ${roleLabel ? `<div class="admin-role-banner"><i data-lucide="shield-check" style="width:10px;height:10px;"></i> ${roleLabel}</div>` : ''}
-              ${user.eGovVerified ? `<div class="egov-status-pill"><i data-lucide="check-circle"></i> eGov Citizen SSO Connected</div>` : ''}
-            </div>
-
-            ${user.eGovVerified ? `
-              <div class="egov-citizen-meta-grid" style="margin-top:8px; padding:8px 10px; background:rgba(0,56,168,0.15); border:1px solid rgba(96,165,250,0.2); border-radius:10px; font-size:0.72rem; color:var(--text-secondary);">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px;">
-                  <div><strong>Email:</strong> ${user.Email || 'N/A'}</div>
-                  <div><strong>Mobile:</strong> ${user.ContactNumber || 'N/A'}</div>
-                  <div><strong>Birthdate:</strong> ${user.BirthDate || 'N/A'}</div>
-                  <div><strong>Sex:</strong> ${user.Sex === 'M' ? 'Male' : user.Sex === 'F' ? 'Female' : user.Sex || 'N/A'}</div>
-                  <div><strong>Nationality:</strong> ${user.Nationality || 'Filipino'}</div>
-                  <div><strong>UniqID:</strong> ${user.eGovUniqId || 'VERIFIED'}</div>
-                </div>
-                ${user.Address ? `<div style="margin-top:4px; border-top:1px solid rgba(255,255,255,0.06); padding-top:4px;"><strong>Address:</strong> ${user.Address}</div>` : ''}
-              </div>
-            ` : ''}
-
-            <div class="profile-actions-row" style="margin-top:10px;">
-              <button class="edit-stats-pill-btn" onclick="app.openModal('edit-stats-modal')">
-                <i data-lucide="pencil" style="width: 11px; height: 11px;"></i> Edit Stats
-              </button>
-              <button class="trigger-avatar-upload upload-photo-pill-btn">
-                <i data-lucide="upload" style="width: 11px; height: 11px;"></i> Photo
-              </button>
-              ${!user.eGovVerified ? `<button class="egov-link-pill-btn egov-signin-btn"><i data-lucide="shield"></i> Connect eGov</button>` : ''}
-            </div>
+            <p class="profile-eyebrow">YOUR ATHLETE PROFILE</p>
+            <h2 class="profile-name-text">${escapeHTML(name)}</h2>
+            <p class="profile-sub-text">${escapeHTML(user.Rank || 'Rookie')} <span aria-hidden="true">·</span> ${escapeHTML(user.ProgramFocus || 'Whole Body')}</p>
           </div>
-        </div>
-      `;
+          <div class="profile-actions-row">
+            <button class="edit-stats-pill-btn" onclick="authModule.openStatsModal()"><i data-lucide="sliders-horizontal"></i> Edit profile</button>
+          </div>
+        </div>`;
     }
-
-    const weightValEl = document.getElementById('user-weight-display');
-    const heightValEl = document.getElementById('user-height-display');
-    const bmiValEl = document.getElementById('user-bmi-display');
-    const bmiCatEl = document.getElementById('user-bmi-category');
-
-    if (weightValEl) weightValEl.textContent = user.WeightKg ? `${user.WeightKg} kg` : '-- kg';
-    if (heightValEl) heightValEl.textContent = user.HeightCm ? `${user.HeightCm} cm` : '-- cm';
-    if (bmiValEl) bmiValEl.textContent = user.BMI || '--';
-    if (bmiCatEl) bmiCatEl.textContent = user.BMICategory || '--';
-
-    if (window.lucide) lucide.createIcons();
-
-    // Show schedule training btn in header for coaches/officers
-    const schedBtn = document.getElementById('schedule-training-btn');
-    if (schedBtn) {
-      schedBtn.style.display = isCoachOrOfficer(user) ? 'inline-flex' : 'none';
+    for (const [id, value] of [
+      ['user-weight-display', user.WeightKg ? `${user.WeightKg} kg` : '—'],
+      ['user-height-display', user.HeightCm ? `${user.HeightCm} cm` : '—'],
+      ['user-bmi-display', user.BMI || '—'],
+      ['user-bmi-category', user.BMI ? user.BMICategory : 'Add your measurements']
+    ]) {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
     }
+    app.refreshIcons();
   }
 
-  handlePhotoUpload(inputEl) {
-    if (!inputEl.files || !inputEl.files[0]) return;
-    const file = inputEl.files[0];
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Photo file is too large. Please select an image under 5MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64Image = e.target.result;
-      const user = store.getCurrentUser();
-      if (user) {
-        user.Avatar = base64Image;
-        store.saveMember(user);
-        this.renderUserProfileCard();
-        alert('📷 Profile photo updated!');
-      }
-    };
-    reader.readAsDataURL(file);
-  }
-
-  handleAttendanceCheckin() {
+  openStatsModal() {
     const user = store.getCurrentUser();
     if (!user) return;
-
-    store.addAttendanceLog(user.MemberID);
-    this.renderUserProfileCard();
-
-    alert('📍 Attendance Check-In Recorded!\nSent for Coach/Officer approval.');
-  }
-
-  handleGoogleSignIn() {
-    const name = prompt('Enter your full name (Last, First M.):');
-    if (!name || !name.trim()) return;
-
-    const email = prompt('Enter your institutional email:');
-    if (!email || !email.trim()) return;
-
-    const member = store.loginWithGoogle({ name: name.trim(), email: email.trim() });
-    this.renderUserProfileCard();
-
-    alert(`Google Authentication Successful!\nSigned in as: ${member.FullName}`);
-    app.switchScreen('home-screen');
-    // Render schedule panel immediately
-    setTimeout(() => { if (window.scheduleModule) scheduleModule.renderAllPanels(); }, 80);
-
-    // Background sync
-    this._syncFromSheets();
-  }
-
-  handleRegister() {
-    const username = document.getElementById('reg-username').value.trim();
-    const fullName = document.getElementById('reg-fullname').value.trim();
-    const rank = document.getElementById('reg-rank').value;
-    const email = document.getElementById('reg-email').value.trim();
-    const contact = document.getElementById('reg-contact').value.trim();
-    const password = document.getElementById('reg-password').value;
-    const confirmPassword = document.getElementById('reg-confirm-password').value;
-    const privacyConsent = document.getElementById('reg-privacy-consent').checked;
-
-    if (!username || !fullName || !rank || !password) {
-      alert('Please fill in all required fields.');
-      return;
-    }
-
-    if (password.length < 6) {
-      alert('Password must be at least 6 characters.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      alert('Passwords do not match.');
-      return;
-    }
-
-    if (!privacyConsent) {
-      alert('Please accept the Data Privacy notice.');
-      return;
-    }
-
-    const members = store.getMembers();
-    const existing = members.find(m => m.Username.toLowerCase() === username.toLowerCase());
-    if (existing) {
-      alert('Username already exists. Please choose another.');
-      return;
-    }
-
-    const newMember = {
-      MemberID: 'M' + String(members.length + 1).padStart(3, '0'),
-      Username: username,
-      FullName: fullName,
-      Rank: rank,
-      ProgramFocus: 'Whole Body',
-      Email: email || `${username}@batstate-u.edu.ph`,
-      ContactNumber: contact || 'N/A',
-      DateJoined: new Date().toISOString().split('T')[0],
-      WeightKg: 0,
-      HeightCm: 0,
-      BMI: 0,
-      BMICategory: '--',
-      Status: 'Active',
-      Notes: 'Newly registered athlete',
-      Password: password,
-      Avatar: ''
-    };
-
-    store.saveMember(newMember);
-    store.postToSheets('Members', newMember);
-    store.setCurrentUser(newMember);
-    this.renderUserProfileCard();
-
-    alert(`Account created! Welcome to IYDV ONEUP, ${fullName}.`);
-    app.switchScreen('home-screen');
-    // Render schedule panel immediately
-    setTimeout(() => { if (window.scheduleModule) scheduleModule.renderAllPanels(); }, 80);
-  }
-
-  handleLogin() {
-    const userOrEmail = document.getElementById('login-username').value.trim().toLowerCase();
-    const password = document.getElementById('login-password').value;
-
-    if (!userOrEmail) {
-      alert('Please enter your username or email.');
-      return;
-    }
-
-    const members = store.getMembers();
-    const found = members.find(m =>
-      m.Username.toLowerCase() === userOrEmail ||
-      (m.Email && m.Email.toLowerCase() === userOrEmail)
-    );
-
-    if (!found) {
-      alert('Account not found. Check your credentials or create a new account.');
-      return;
-    }
-
-    if (found.Password && found.Password !== password) {
-      alert('Incorrect password. Please try again.');
-      return;
-    }
-
-    store.setCurrentUser(found);
-    this.renderUserProfileCard();
-
-    // Show sync indicator briefly
-    const syncNote = document.createElement('div');
-    syncNote.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);background:rgba(255,107,53,0.9);color:#fff;padding:6px 16px;border-radius:20px;font-size:0.72rem;font-family:Outfit,sans-serif;font-weight:700;z-index:9999;letter-spacing:0.5px;';
-    syncNote.textContent = '⟳ Syncing from Sheets...';
-    document.body.appendChild(syncNote);
-
-    app.switchScreen('home-screen');
-    // Render schedule panel immediately (don't wait for sync)
-    setTimeout(() => { if (window.scheduleModule) scheduleModule.renderAllPanels(); }, 80);
-
-    // Background sync from Sheets after login
-    this._syncFromSheets().then(() => {
-      syncNote.textContent = '\u2713 Synced with Sheets';
-      syncNote.style.background = 'rgba(48,209,88,0.9)';
-      setTimeout(() => syncNote.remove(), 1800);
-      // Refresh panels again after sync in case schedules updated
-      this.renderUserProfileCard();
-      if (window.scheduleModule) scheduleModule.renderAllPanels();
-    }).catch(() => {
-      syncNote.textContent = '\u26a0\ufe0f Offline mode';
-      syncNote.style.background = 'rgba(255,149,0,0.9)';
-      setTimeout(() => syncNote.remove(), 2000);
-    });
-  }
-
-  async _syncFromSheets() {
-    try {
-      await store.syncMembersFromSheets();
-      await store.syncAttendanceFromSheets();
-      await store.syncSchedulesFromSheets();
-    } catch (e) {
-      console.warn('[Auth] Sheets sync failed:', e.message);
-    }
+    document.getElementById('edit-weight-input').value = user.WeightKg || '';
+    document.getElementById('edit-height-input').value = user.HeightCm || '';
+    document.getElementById('edit-program-input').value = user.ProgramFocus || 'Whole Body';
+    this.showError(document.getElementById('edit-stats-form'), '');
+    app.openModal('edit-stats-modal');
   }
 
   handleSaveStats() {
-    const user = store.getCurrentUser();
-    if (!user) return;
-
-    const newWeight = parseFloat(document.getElementById('edit-weight-input').value);
-    const newHeight = parseFloat(document.getElementById('edit-height-input').value);
-    const newProgram = document.getElementById('edit-program-input').value;
-
-    if (isNaN(newWeight) || newWeight <= 0) {
-      alert('Please enter a valid weight in kg.');
-      return;
-    }
-
-    if (isNaN(newHeight) || newHeight <= 0) {
-      alert('Please enter a valid height in cm.');
-      return;
-    }
-
-    user.WeightKg = newWeight;
-    user.HeightCm = newHeight;
-    user.ProgramFocus = newProgram;
-    store.calculateBMI(user);
-
-    store.saveMember(user);
-    store.addWeightLog(user.MemberID, newWeight, new Date().toISOString().split('T')[0]);
-
-    this.renderUserProfileCard();
-    app.closeModal('edit-stats-modal');
-
-    if (window.weightModule) weightModule.renderWeightChart();
+    return this.submit('edit-stats-form', 'Saving…', async () => {
+      const user = store.getCurrentUser();
+      if (!user) throw new Error('Sign in to update your profile.');
+      const weight = Number(document.getElementById('edit-weight-input').value);
+      const height = Number(document.getElementById('edit-height-input').value);
+      if (!Number.isFinite(weight) || weight < 20 || weight > 350) throw new Error('Enter a weight between 20 and 350 kg.');
+      if (!Number.isFinite(height) || height < 100 || height > 250) throw new Error('Enter a height between 100 and 250 cm.');
+      const oldWeight = Number(user.WeightKg);
+      user.WeightKg = Math.round(weight * 10) / 10;
+      user.HeightCm = Math.round(height * 10) / 10;
+      user.ProgramFocus = document.getElementById('edit-program-input').value;
+      store.calculateBMI(user);
+      store.saveMember(user);
+      if (oldWeight !== user.WeightKg) store.addWeightLog(user.MemberID, user.WeightKg, localDate());
+      await store.flush();
+      this.renderUserProfileCard();
+      app.closeModal('edit-stats-modal');
+      if (typeof weightModule !== 'undefined') weightModule.renderWeightChart();
+      app.notify('Your profile has been updated.', 'success');
+    });
   }
 
-  logout() {
-    if (confirm('Are you sure you want to sign out?')) {
-      store.clearCurrentUser();
+  async handleAttendanceCheckin() {
+    const user = store.getCurrentUser();
+    if (!user) return;
+    const button = document.querySelector('.top-attendance-btn');
+    if (button) button.disabled = true;
+    try {
+      store.addAttendanceLog(user.MemberID);
+      await store.flush();
+      this.renderUserProfileCard();
+      app.notify('You’re checked in for today. Have a great session!', 'success');
+    } catch (error) {
+      app.notify(error.message || 'Check-in could not be saved. Please try again.', 'error');
+      if (button) button.disabled = false;
+    }
+  }
+
+  async handlePhotoUpload(input) {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      app.notify('Choose a JPG, PNG or WebP image smaller than 5 MB.', 'error');
+      return;
+    }
+    let image;
+    try {
+      image = await createImageBitmap(file);
+      if (!image.width || !image.height) throw new Error('Invalid image');
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 256;
+      const size = Math.min(image.width, image.height);
+      canvas.getContext('2d').drawImage(image, (image.width - size) / 2, (image.height - size) / 2, size, size, 0, 0, 256, 256);
+      const avatar = canvas.toDataURL('image/jpeg', 0.82);
+      if (avatar.length > 250 * 1024) throw new Error('The image is too large after resizing. Try a different photo.');
+      const user = store.getCurrentUser();
+      if (!user) return;
+      user.Avatar = avatar;
+      store.saveMember(user);
+      await store.flush();
+      this.renderUserProfileCard();
+      app.notify('Profile photo updated.', 'success');
+    } catch (error) {
+      app.notify(error.message || 'This photo could not be saved. Try a different image.', 'error');
+    } finally {
+      image?.close();
+    }
+  }
+
+  async logout() {
+    try {
+      await store.logoutAccount();
+      this.resetTrainingDrafts();
+      document.querySelectorAll('.modal-overlay.active').forEach(modal => app.closeModal(modal.id));
       app.switchScreen('welcome-screen');
+      app.notify('You’ve signed out safely.', 'success');
+    } catch (error) {
+      app.notify(error.message || 'We could not sign you out. Please try again.', 'error');
     }
   }
 }
